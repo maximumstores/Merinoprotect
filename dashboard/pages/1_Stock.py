@@ -9,8 +9,8 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (ACCENT, PLOTLY_LAYOUT, inject_css, lang_selector,
-                metric_card, mp_label, q, t)
+from db import (ACCENT, AMAZON_DOMAINS, PLOTLY_LAYOUT, inject_css,
+                lang_selector, metric_card, mp_label, q, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect · Stock",
                    page_icon="🐑")
@@ -36,7 +36,7 @@ inv = q("""
     WHERE snapshot_date = %s
 """, (snapshot_date,))
 
-# фильтры
+# -------------------------------------------------------------- фільтри ----
 fc1, fc2, _ = st.columns([2, 3, 5])
 with fc1:
     mp_options = ["All"] + sorted(inv["marketplace_id"].dropna().unique().tolist())
@@ -56,7 +56,13 @@ for col in ["fulfillable_quantity", "inbound_total", "reserved_total",
             "unfulfillable_total", "total_quantity"]:
     df[col] = df[col].fillna(0).astype(int)
 
-# карточки
+# посилання на лістинг + фото за ASIN
+df["link"] = ("https://" + df["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
+              + "/dp/" + df["asin"].fillna(""))
+df["photo"] = ("https://images.amazon.com/images/P/"
+               + df["asin"].fillna("") + ".jpg")
+
+# ------------------------------------------------------------- картки ----
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     metric_card(t("sku_in_stock"),
@@ -72,7 +78,7 @@ with c4:
 
 st.markdown("")
 
-# график
+# --------------------------------------------------------------- графік ----
 top15 = (df.groupby("seller_sku")["fulfillable_quantity"].sum()
          .sort_values(ascending=False).head(15).sort_values())
 if len(top15):
@@ -83,15 +89,16 @@ if len(top15):
     fig.update_layout(**{**PLOTLY_LAYOUT, "height": 420}, title=t("top15_sku"))
     st.plotly_chart(fig, use_container_width=True)
 
-# таблица
+# --------------------------------------------------------------- таблиця ----
 st.markdown(f"**{t('stock_by_sku')}** · {t('snapshot')} {snapshot_date}")
 
-show = (df[["seller_sku", "product_name", "marketplace_id",
-            "fulfillable_quantity", "inbound_total", "reserved_total",
-            "unfulfillable_total", "total_quantity"]]
+show = (df[["photo", "seller_sku", "asin", "link", "product_name",
+            "marketplace_id", "fulfillable_quantity", "inbound_total",
+            "reserved_total", "unfulfillable_total", "total_quantity"]]
         .sort_values("fulfillable_quantity", ascending=False)
         .rename(columns={
-            "seller_sku": "SKU", "product_name": t("col_name"),
+            "photo": t("col_photo"), "seller_sku": "SKU", "asin": "ASIN",
+            "link": "Amazon", "product_name": t("col_name"),
             "marketplace_id": t("col_market"),
             "fulfillable_quantity": "Fulfillable",
             "inbound_total": "Inbound", "reserved_total": "Reserved",
@@ -108,7 +115,14 @@ def _row_style(row):
     return [""] * len(row)
 
 
-st.dataframe(show.style.apply(_row_style, axis=1),
-             hide_index=True, use_container_width=True, height=560)
+st.dataframe(
+    show.style.apply(_row_style, axis=1),
+    hide_index=True, use_container_width=True, height=560,
+    column_config={
+        t("col_photo"): st.column_config.ImageColumn("", width="small"),
+        "Amazon": st.column_config.LinkColumn("Amazon", display_text="🔗"),
+        t("col_name"): st.column_config.TextColumn(t("col_name"), width="large"),
+    },
+)
 
 st.caption(t("legend_stock"))
