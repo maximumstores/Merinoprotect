@@ -26,60 +26,42 @@ if snap.empty or snap["d"].isna().all():
 snapshot_date = snap["d"].iloc[0]
 
 inv = q("""
-    SELECT marketplace_id, seller_sku, asin, product_name,
-           fulfillable_quantity,
-           COALESCE(inbound_working_quantity,0)
-             + COALESCE(inbound_shipped_quantity,0)
-             + COALESCE(inbound_receiving_quantity,0) AS inbound_total,
-           reserved_total, unfulfillable_total, total_quantity
-    FROM merinoprotect.fba_inventory
-    WHERE snapshot_date = %s
+    SELECT f.marketplace_id, f.seller_sku, f.asin, f.product_name,
+           f.fulfillable_quantity,
+           COALESCE(f.inbound_working_quantity,0)
+             + COALESCE(f.inbound_shipped_quantity,0)
+             + COALESCE(f.inbound_receiving_quantity,0) AS inbound_total,
+           f.reserved_total, f.unfulfillable_total, f.total_quantity,
+           c.image_url
+    FROM merinoprotect.fba_inventory f
+    LEFT JOIN merinoprotect.catalog_images c
+      ON c.marketplace_id = f.marketplace_id AND c.asin = f.asin
+    WHERE f.snapshot_date = %s
 """, (snapshot_date,))
 
-# -------------------------------------------------------------- фільтри ----
-fc1, fc2, _ = st.columns([2, 3, 5])
-with fc1:
-    mp_options = ["All"] + sorted(inv["marketplace_id"].dropna().unique().tolist())
-    mp_sel = st.selectbox(t("marketplace"), mp_options, format_func=mp_label)
-with fc2:
-    search = st.text_input(t("search"), "")
-
-df = inv.copy()
-if mp_sel != "All":
-    df = df[df["marketplace_id"] == mp_sel]
-if search.strip():
-    s = search.strip().lower()
-    df = df[df["seller_sku"].str.lower().str.contains(s, na=False)
-            | df["product_name"].str.lower().str.contains(s, na=False)]
-
+df_all = inv.copy()
 for col in ["fulfillable_quantity", "inbound_total", "reserved_total",
             "unfulfillable_total", "total_quantity"]:
-    df[col] = df[col].fillna(0).astype(int)
-
-# посилання на лістинг + фото за ASIN
-df["link"] = ("https://" + df["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
-              + "/dp/" + df["asin"].fillna(""))
-df["photo"] = ("https://images.amazon.com/images/P/"
-               + df["asin"].fillna("") + ".jpg")
+    df_all[col] = df_all[col].fillna(0).astype(int)
 
 # ------------------------------------------------------------- картки ----
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     metric_card(t("sku_in_stock"),
-                f"{(df['fulfillable_quantity'] > 0).sum():,}",
-                sub=f"{t('total_rows')}: {len(df):,}")
+                f"{(df_all['fulfillable_quantity'] > 0).sum():,}",
+                sub=f"{t('total_rows')}: {len(df_all):,}")
 with c2:
-    metric_card("Fulfillable", f"{df['fulfillable_quantity'].sum():,}")
+    metric_card("Fulfillable", f"{df_all['fulfillable_quantity'].sum():,}")
 with c3:
-    metric_card("Inbound", f"{df['inbound_total'].sum():,}",
+    metric_card("Inbound", f"{df_all['inbound_total'].sum():,}",
                 sub=t("inbound_sub"))
 with c4:
-    metric_card("Reserved", f"{df['reserved_total'].sum():,}")
+    metric_card("Reserved", f"{df_all['reserved_total'].sum():,}")
 
 st.markdown("")
 
 # --------------------------------------------------------------- графік ----
-top15 = (df.groupby("seller_sku")["fulfillable_quantity"].sum()
+top15 = (df_all.groupby("seller_sku")["fulfillable_quantity"].sum()
          .sort_values(ascending=False).head(15).sort_values())
 if len(top15):
     fig = go.Figure(go.Bar(
@@ -89,16 +71,36 @@ if len(top15):
     fig.update_layout(**{**PLOTLY_LAYOUT, "height": 420}, title=t("top15_sku"))
     st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------------------------------------------- таблиця ----
+# ----------------------------------------- фільтри НАД таблицею ----
 st.markdown(f"**{t('stock_by_sku')}** · {t('snapshot')} {snapshot_date}")
 
-show = (df[["photo", "seller_sku", "asin", "link", "product_name",
+fc1, fc2, _ = st.columns([2, 3, 5])
+with fc1:
+    mp_options = ["All"] + sorted(df_all["marketplace_id"].dropna().unique().tolist())
+    mp_sel = st.selectbox(t("marketplace"), mp_options, format_func=mp_label)
+with fc2:
+    search = st.text_input(t("search"), "")
+
+df = df_all.copy()
+if mp_sel != "All":
+    df = df[df["marketplace_id"] == mp_sel]
+if search.strip():
+    s = search.strip().lower()
+    df = df[df["seller_sku"].str.lower().str.contains(s, na=False)
+            | df["product_name"].str.lower().str.contains(s, na=False)]
+
+# ASIN -> клікабельне посилання на лістинг потрібного маркетплейсу
+df["asin_link"] = ("https://" + df["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
+                   + "/dp/" + df["asin"].fillna(""))
+
+# --------------------------------------------------------------- таблиця ----
+show = (df[["image_url", "seller_sku", "asin_link", "product_name",
             "marketplace_id", "fulfillable_quantity", "inbound_total",
             "reserved_total", "unfulfillable_total", "total_quantity"]]
         .sort_values("fulfillable_quantity", ascending=False)
         .rename(columns={
-            "photo": t("col_photo"), "seller_sku": "SKU", "asin": "ASIN",
-            "link": "Amazon", "product_name": t("col_name"),
+            "image_url": t("col_photo"), "seller_sku": "SKU",
+            "asin_link": "ASIN", "product_name": t("col_name"),
             "marketplace_id": t("col_market"),
             "fulfillable_quantity": "Fulfillable",
             "inbound_total": "Inbound", "reserved_total": "Reserved",
@@ -120,7 +122,7 @@ st.dataframe(
     hide_index=True, use_container_width=True, height=560,
     column_config={
         t("col_photo"): st.column_config.ImageColumn("", width="small"),
-        "Amazon": st.column_config.LinkColumn("Amazon", display_text="🔗"),
+        "ASIN": st.column_config.LinkColumn("ASIN", display_text=r".*/dp/(.*)"),
         t("col_name"): st.column_config.TextColumn(t("col_name"), width="large"),
     },
 )
