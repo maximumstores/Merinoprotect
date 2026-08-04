@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Общие функции дашборда Merinoprotect: БД, i18n, UI-хелперы."""
+"""Общий модуль дашборда Merinoprotect: БД, i18n, UI-хелперы."""
 
 import os
 
@@ -30,6 +30,40 @@ def mp_label(mp_id: str) -> str:
 # ------------------------------------------------------------- i18n ----
 
 TRANSLATIONS = {
+    "uk": {
+        "overview_title": "🐑 Merinoprotect — Огляд",
+        "stock_title": "📦 Залишки FBA",
+        "marketplace": "Маркетплейс",
+        "period": "Період",
+        "days": "днів",
+        "orders_n": "Замовлення",
+        "revenue": "Виручка",
+        "avg_check": "Середній чек",
+        "orders_today": "Замовлень сьогодні",
+        "by_utc": "за UTC",
+        "chart_daily": "Замовлення та виручка по днях",
+        "orders_series": "Замовлення",
+        "revenue_series": "Виручка",
+        "top10_sku": "Топ-10 SKU за кількістю",
+        "last20": "Останні 20 замовлень",
+        "col_order": "Замовлення",
+        "col_date": "Дата",
+        "col_status": "Статус",
+        "col_market": "Маркет",
+        "col_sum": "Сума",
+        "no_orders": "Немає замовлень за обраний період.",
+        "search": "Пошук за SKU / назвою",
+        "sku_in_stock": "SKU із залишком > 0",
+        "total_rows": "всього рядків",
+        "inbound_sub": "working + shipped + receiving",
+        "top15_sku": "Топ-15 SKU за fulfillable",
+        "stock_by_sku": "Залишки за SKU",
+        "snapshot": "знімок",
+        "col_name": "Назва",
+        "no_inventory": "Немає даних у fba_inventory — запусти 02_fba_inventory_loader.py",
+        "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
+        "cache_note": "Дані з merinoprotect · кеш 10 хв",
+    },
     "ru": {
         "overview_title": "🐑 Merinoprotect — Обзор",
         "stock_title": "📦 Остатки FBA",
@@ -100,29 +134,39 @@ TRANSLATIONS = {
     },
 }
 
+LANGS = ["uk", "ru", "en"]
+LANG_LABELS = {"uk": "УКР", "ru": "РУС", "en": "ENG"}
+
 
 def lang_selector() -> str:
-    """Переключатель языка в сайдбаре. Возвращает код языка."""
+    """Мини-кнопки вибору мови в сайдбарі."""
     if "lang" not in st.session_state:
-        st.session_state["lang"] = "ru"
+        st.session_state["lang"] = "uk"
     with st.sidebar:
-        st.radio(
-            "Language / Язык",
-            options=["ru", "en"],
-            format_func=lambda x: {"ru": "🇷🇺 Русский", "en": "🇬🇧 English"}[x],
-            key="lang",
-        )
+        cols = st.columns(3)
+        for i, code in enumerate(LANGS):
+            with cols[i]:
+                is_active = st.session_state["lang"] == code
+                if st.button(
+                    LANG_LABELS[code],
+                    key=f"lang_{code}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                ):
+                    st.session_state["lang"] = code
+                    st.rerun()
     return st.session_state["lang"]
 
 
 def t(key: str) -> str:
-    lang = st.session_state.get("lang", "ru")
-    return TRANSLATIONS.get(lang, TRANSLATIONS["ru"]).get(key, key)
+    lang = st.session_state.get("lang", "uk")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["uk"]).get(key, key)
 
 
 # ---------------------------------------------------------------- DB ----
 
 def _database_url() -> str:
+    # 1) Streamlit Cloud secrets, 2) локальний .env проєкту
     try:
         if "DATABASE_URL" in st.secrets:
             return st.secrets["DATABASE_URL"]
@@ -132,7 +176,7 @@ def _database_url() -> str:
     load_dotenv(os.path.join(os.path.dirname(here), ".env"), override=False)
     url = os.getenv("DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL не найден ни в st.secrets, ни в .env")
+        raise RuntimeError("DATABASE_URL не знайдено ні в st.secrets, ні в .env")
     return url
 
 
@@ -145,10 +189,12 @@ def get_conn():
 
 @st.cache_data(ttl=600, show_spinner=False)
 def q(sql: str, params: tuple = ()) -> pd.DataFrame:
+    """Запит до БД -> DataFrame. Кеш 10 хв."""
     conn = get_conn()
     try:
         return pd.read_sql(sql, conn, params=params)
     except Exception:
+        # з'єднання могло протухнути — перестворюємо один раз
         get_conn.clear()
         conn = get_conn()
         return pd.read_sql(sql, conn, params=params)
