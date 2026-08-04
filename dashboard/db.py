@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Общий модуль дашборда Merinoprotect: БД, i18n, UI-хелперы."""
+"""Общий модуль дашборда Merinoprotect: БД, i18n, навигация, UI-хелперы."""
 
 import os
 
@@ -7,6 +7,9 @@ import pandas as pd
 import psycopg2
 import streamlit as st
 from dotenv import load_dotenv
+
+LOGO_URL = ("https://merinoprotect.com/cdn/shop/files/"
+            "Logo1939x1200_PNG_-_2.png?v=1756361714&width=280")
 
 MARKETPLACE_NAMES = {
     "ATVPDKIKX0DER": "US",
@@ -31,6 +34,8 @@ def mp_label(mp_id: str) -> str:
 
 TRANSLATIONS = {
     "uk": {
+        "nav_overview": "📊 Огляд",
+        "nav_stock": "📦 Залишки",
         "overview_title": "🐑 Merinoprotect — Огляд",
         "stock_title": "📦 Залишки FBA",
         "marketplace": "Маркетплейс",
@@ -65,6 +70,8 @@ TRANSLATIONS = {
         "cache_note": "Дані з merinoprotect · кеш 10 хв",
     },
     "ru": {
+        "nav_overview": "📊 Обзор",
+        "nav_stock": "📦 Остатки",
         "overview_title": "🐑 Merinoprotect — Обзор",
         "stock_title": "📦 Остатки FBA",
         "marketplace": "Маркетплейс",
@@ -99,6 +106,8 @@ TRANSLATIONS = {
         "cache_note": "Данные из merinoprotect · кэш 10 мин",
     },
     "en": {
+        "nav_overview": "📊 Overview",
+        "nav_stock": "📦 Stock",
         "overview_title": "🐑 Merinoprotect — Overview",
         "stock_title": "📦 FBA Stock",
         "marketplace": "Marketplace",
@@ -138,11 +147,25 @@ LANGS = ["uk", "ru", "en"]
 LANG_LABELS = {"uk": "УКР", "ru": "РУС", "en": "ENG"}
 
 
+def t(key: str) -> str:
+    lang = st.session_state.get("lang", "uk")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["uk"]).get(key, key)
+
+
 def lang_selector() -> str:
-    """Мини-кнопки вибору мови в сайдбарі."""
+    """Сайдбар: лого + навігація + мова."""
     if "lang" not in st.session_state:
         st.session_state["lang"] = "uk"
     with st.sidebar:
+        st.markdown(
+            f'<div style="padding: 4px 0 14px 0; text-align: center;">'
+            f'<img src="{LOGO_URL}" style="max-width: 170px; width: 100%;" />'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.page_link("app.py", label=t("nav_overview"))
+        st.page_link("pages/1_Stock.py", label=t("nav_stock"))
+        st.markdown("---")
         cols = st.columns(3)
         for i, code in enumerate(LANGS):
             with cols[i]:
@@ -156,11 +179,6 @@ def lang_selector() -> str:
                     st.session_state["lang"] = code
                     st.rerun()
     return st.session_state["lang"]
-
-
-def t(key: str) -> str:
-    lang = st.session_state.get("lang", "uk")
-    return TRANSLATIONS.get(lang, TRANSLATIONS["uk"]).get(key, key)
 
 
 # ---------------------------------------------------------------- DB ----
@@ -194,7 +212,6 @@ def q(sql: str, params: tuple = ()) -> pd.DataFrame:
     try:
         return pd.read_sql(sql, conn, params=params)
     except Exception:
-        # з'єднання могло протухнути — перестворюємо один раз
         get_conn.clear()
         conn = get_conn()
         return pd.read_sql(sql, conn, params=params)
@@ -204,6 +221,8 @@ def q(sql: str, params: tuple = ()) -> pd.DataFrame:
 
 CSS = """
 <style>
+[data-testid="stSidebarNav"] { display: none; }
+
 .block-container { padding-top: 1.6rem; padding-bottom: 2rem; }
 header[data-testid="stHeader"] { background: transparent; }
 
