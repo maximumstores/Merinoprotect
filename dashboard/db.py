@@ -25,6 +25,20 @@ MARKETPLACE_NAMES = {
     "A1C3SOZRARQ6R3": "PL",
 }
 
+AMAZON_DOMAINS = {
+    "ATVPDKIKX0DER": "amazon.com",
+    "A2EUQ1WTGCTBG2": "amazon.ca",
+    "A1AM78C64UM0Y8": "amazon.com.mx",
+    "A1F83G8C2ARO7P": "amazon.co.uk",
+    "A1PA6795UKMFR9": "amazon.de",
+    "A13V1IB3VIYZZH": "amazon.fr",
+    "APJ6JRA9NG5V4": "amazon.it",
+    "A1RKKUPIHCS9HS": "amazon.es",
+    "A1805IZSGTT6HS": "amazon.nl",
+    "A2NODRKZP88ZB9": "amazon.se",
+    "A1C3SOZRARQ6R3": "amazon.pl",
+}
+
 
 def mp_label(mp_id: str) -> str:
     return MARKETPLACE_NAMES.get(mp_id, mp_id)
@@ -65,6 +79,7 @@ TRANSLATIONS = {
         "stock_by_sku": "Залишки за SKU",
         "snapshot": "знімок",
         "col_name": "Назва",
+        "col_photo": "Фото",
         "no_inventory": "Немає даних у fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Дані з merinoprotect · кеш 10 хв",
@@ -101,6 +116,7 @@ TRANSLATIONS = {
         "stock_by_sku": "Остатки по SKU",
         "snapshot": "снапшот",
         "col_name": "Название",
+        "col_photo": "Фото",
         "no_inventory": "Нет данных в fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Данные из merinoprotect · кэш 10 мин",
@@ -137,6 +153,7 @@ TRANSLATIONS = {
         "stock_by_sku": "Stock by SKU",
         "snapshot": "snapshot",
         "col_name": "Product name",
+        "col_photo": "Photo",
         "no_inventory": "No data in fba_inventory — run 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Data from merinoprotect · cache 10 min",
@@ -222,6 +239,11 @@ def q(sql: str, params: tuple = ()) -> pd.DataFrame:
 CSS = """
 <style>
 [data-testid="stSidebarNav"] { display: none; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
 
 .block-container { padding-top: 1.6rem; padding-bottom: 2rem; }
 header[data-testid="stHeader"] { background: transparent; }
