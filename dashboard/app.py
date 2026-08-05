@@ -10,14 +10,14 @@ import streamlit as st
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, PLOTLY_LAYOUT, inject_css,
                 lang_selector, metric_card, mp_label, q, t)
 
-st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
+st.set_page_config(layout="wide", page_title="MERINNOVATION", page_icon="🐑")
 inject_css()
 lang_selector()
 
 st.markdown(f"## {t('overview_title')}")
 
 # ------------------------------------------------------------ фільтри ----
-mps = q("SELECT DISTINCT marketplace_id FROM merinoprotect.orders ORDER BY 1")
+mps = q("SELECT DISTINCT marketplace_id FROM MERINNOVATION.orders ORDER BY 1")
 mp_options = ["All"] + mps["marketplace_id"].dropna().tolist()
 
 fc1, fc2, _ = st.columns([2, 2, 6])
