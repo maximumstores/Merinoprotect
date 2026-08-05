@@ -173,7 +173,8 @@ fig.add_scatter(x=daily["day"], y=daily["revenue"],
                 line=dict(color=ACCENT2, width=2))
 fig.update_layout(
     **plotly_layout(title=t("chart_daily")),
-    yaxis2=dict(overlaying="y", side="right", showgrid=False, color=chart_font_color),
+    yaxis2=dict(overlaying="y", side="right", showgrid=False, color=chart_font_color,
+                tickfont=dict(color=chart_font_color)),
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -215,6 +216,7 @@ with g1:
             + "/dp/" + top_tbl["asin"].fillna("")
         )
 
+        st.caption(t("sort_hint"))
         sort_col, sort_asc = sort_controls(
             {"SKU": "seller_sku", "ASIN": "asin", t("col_qty"): "qty"},
             key="topsku", default_index=2, default_desc=True,
@@ -264,6 +266,7 @@ with g2:
         axis=1,
     )
 
+    st.caption(t("sort_hint"))
     sort_col20, sort_asc20 = sort_controls(
         {t("col_date"): "purchase_date", t("col_status"): "order_status",
          t("col_market"): "market_label", t("col_sum"): "order_total_amount"},
