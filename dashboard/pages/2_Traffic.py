@@ -11,8 +11,8 @@ import streamlit as st
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
-                inject_css, lang_selector, metric_card, mp_label,
-                plotly_layout, q, render_html_table, sort_controls, t)
+                download_csv_button, inject_css, lang_selector, metric_card,
+                mp_label, plotly_layout, q, render_html_table, sort_controls, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect · Traffic", page_icon="🐑")
 lang_selector()
@@ -32,11 +32,15 @@ fc1, fc2, _ = st.columns([2, 2, 6])
 with fc1:
     mp_sel = st.selectbox(t("marketplace"), mp_options, format_func=mp_label, key="tr_mp")
 with fc2:
-    period = st.selectbox(t("period"), [7, 14, 30], index=1,
-                          format_func=lambda d: f"{d} {t('days')}", key="tr_period")
+    period = st.selectbox(t("period"), [1, 7, 14, 30], index=2,
+                          format_func=lambda d: t("today_option") if d == 1
+                          else f"{d} {t('days')}", key="tr_period")
 
 mp_where = "" if mp_sel == "All" else "AND marketplace_id = %s"
 mp_params: tuple = () if mp_sel == "All" else (mp_sel,)
+
+date_condition = ("report_date = CURRENT_DATE" if period == 1
+                  else f"report_date >= (CURRENT_DATE - INTERVAL '{period} days')")
 
 # ------------------------------------------------------------- дані ----
 daily = q(f"""
@@ -44,13 +48,13 @@ daily = q(f"""
            ordered_product_sales_currency, units_ordered, sessions, page_views,
            buy_box_percentage, unit_session_percentage
     FROM merinoprotect.sales_traffic_daily
-    WHERE report_date >= (CURRENT_DATE - INTERVAL '{period} days')
+    WHERE {date_condition}
       {mp_where}
     ORDER BY report_date
 """, mp_params)
 
 if daily.empty:
-    st.info(t("no_traffic_data"))
+    st.info(t("today_pending_hint") if period == 1 else t("no_traffic_data"))
     st.stop()
 
 daily["report_date"] = pd.to_datetime(daily["report_date"])
@@ -177,5 +181,10 @@ else:
         (t("buybox_label"), lambda r: r.get("bb_label") or ""),
     ]
     render_html_table(rows, columns, height=560)
+    download_csv_button(
+        by_sku[["seller_sku", "asin", "market_label", "sales_label",
+               "units_ordered", "sessions", "conv_label", "bb_label"]],
+        "traffic_by_sku", key="traffic",
+    )
 
 st.caption(t("traffic_cache_note"))
