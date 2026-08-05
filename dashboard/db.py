@@ -100,6 +100,12 @@ TRANSLATIONS = {
         "search_orders": "Пошук за ASIN / номером замовлення (можна декілька через кому)",
         "conversion_label": "Конверсія", "sessions_label": "сесій",
         "today_pending_hint": "точні дані Amazon з'являться завтра",
+        "nav_traffic": "Трафік", "traffic_title": "📈 Продажі та трафік",
+        "traffic_chart_title": "Сесії та конверсія по днях",
+        "traffic_by_sku": "Трафік за SKU", "no_traffic_data": "Немає даних — запусти 04_sales_traffic_loader.py",
+        "sessions_total": "Сесії", "pageviews_label": "переглядів сторінок",
+        "units_label": "одиниць", "buybox_label": "Buy Box %",
+        "traffic_cache_note": "Дані з sales_traffic · Amazon Sales & Traffic Report",
         "orders_n": "Замовлення", "revenue": "Виручка",
         "avg_check": "Середній чек", "orders_today": "Замовлень сьогодні",
         "by_utc": "за UTC", "chart_daily": "Замовлення та виручка по днях",
@@ -130,6 +136,12 @@ TRANSLATIONS = {
         "search_orders": "Поиск по ASIN / номеру заказа (можно несколько через запятую)",
         "conversion_label": "Конверсия", "sessions_label": "сессий",
         "today_pending_hint": "точные данные Amazon появятся завтра",
+        "nav_traffic": "Трафик", "traffic_title": "📈 Продажи и трафик",
+        "traffic_chart_title": "Сессии и конверсия по дням",
+        "traffic_by_sku": "Трафик по SKU", "no_traffic_data": "Нет данных — запусти 04_sales_traffic_loader.py",
+        "sessions_total": "Сессии", "pageviews_label": "просмотров страниц",
+        "units_label": "единиц", "buybox_label": "Buy Box %",
+        "traffic_cache_note": "Данные из sales_traffic · Amazon Sales & Traffic Report",
         "orders_n": "Заказы", "revenue": "Выручка",
         "avg_check": "Средний чек", "orders_today": "Заказов сегодня",
         "by_utc": "по UTC", "chart_daily": "Заказы и выручка по дням",
@@ -160,6 +172,12 @@ TRANSLATIONS = {
         "search_orders": "Search ASIN / order number (comma-separated for multiple)",
         "conversion_label": "Conversion", "sessions_label": "sessions",
         "today_pending_hint": "accurate Amazon data available tomorrow",
+        "nav_traffic": "Traffic", "traffic_title": "📈 Sales & Traffic",
+        "traffic_chart_title": "Sessions & conversion by day",
+        "traffic_by_sku": "Traffic by SKU", "no_traffic_data": "No data — run 04_sales_traffic_loader.py",
+        "sessions_total": "Sessions", "pageviews_label": "page views",
+        "units_label": "units", "buybox_label": "Buy Box %",
+        "traffic_cache_note": "Data from sales_traffic · Amazon Sales \u0026 Traffic Report",
         "orders_n": "Orders", "revenue": "Revenue",
         "avg_check": "Avg order value", "orders_today": "Orders today",
         "by_utc": "UTC", "chart_daily": "Orders & revenue by day",
@@ -221,6 +239,7 @@ def lang_selector() -> str:
             )
         st.page_link("app.py", label=t("nav_overview"), icon=":material/bar_chart:")
         st.page_link("pages/1_Stock.py", label=t("nav_stock"), icon=":material/inventory_2:")
+        st.page_link("pages/2_Traffic.py", label=t("nav_traffic"), icon=":material/trending_up:")
         st.markdown("---")
 
         cols = st.columns(3)
