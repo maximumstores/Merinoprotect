@@ -243,7 +243,6 @@ def q(sql: str, params: tuple = ()) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------- UI ----
-
 def inject_css():
     th = cur_theme()
     st.markdown(f"""
@@ -255,16 +254,56 @@ def inject_css():
 #MainMenu {{ visibility: hidden; }}
 footer {{ visibility: hidden; }}
 
-.stApp {{ background: {th["bg"]}; }}
-[data-testid="stSidebar"] {{ background: {th["sidebar"]}; }}
+.stApp {{ background: {th["bg"]} !important; }}
+[data-testid="stSidebar"] {{ background: {th["sidebar"]} !important; }}
 .stApp, .stApp p, .stApp span, .stApp label,
-.stApp h1, .stApp h2, .stApp h3, .stApp h4 {{ color: {th["text"]}; }}
+.stApp h1, .stApp h2, .stApp h3, .stApp h4 {{ color: {th["text"]} !important; }}
 .stCaption, .stApp small {{ color: {th["muted"]} !important; }}
 
 .mp-logo {{ filter: {th["logo_filter"]}; }}
 
 .block-container {{ padding-top: 1.6rem; padding-bottom: 2rem; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
+
+/* Селектбокси і випадаючі списки — максимально широкі селектори */
+div[data-baseweb="select"] > div,
+div[data-baseweb="select"] div,
+[data-testid="stSelectbox"] * {{
+    background-color: {th["card"]} !important;
+    color: {th["text"]} !important;
+    border-color: {th["border"]} !important;
+}}
+ul[role="listbox"],
+div[data-baseweb="popover"],
+div[data-baseweb="menu"] {{
+    background-color: {th["card"]} !important;
+}}
+li[role="option"],
+li[role="option"] * {{
+    background-color: {th["card"]} !important;
+    color: {th["text"]} !important;
+}}
+li[role="option"]:hover {{
+    background-color: {th["border"]} !important;
+}}
+
+/* Текстові поля */
+[data-testid="stTextInput"] input {{
+    background-color: {th["card"]} !important;
+    color: {th["text"]} !important;
+    border-color: {th["border"]} !important;
+}}
+
+/* Кнопки (крім активної primary — вона завжди зелена) */
+button[kind="secondary"],
+button[kind="secondary"] * {{
+    background-color: {th["card"]} !important;
+    color: {th["text"]} !important;
+    border-color: {th["border"]} !important;
+}}
+button[kind="secondary"]:hover {{
+    border-color: {ACCENT} !important;
+}}
 
 .mp-card {{
     background: {th["card"]};
@@ -279,7 +318,6 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 .mp-card .d-up   {{ color: #10b981; font-size: 13px; margin-top: 4px; }}
 .mp-card .d-down {{ color: #ef4444; font-size: 13px; margin-top: 4px; }}
 
-div[data-testid="stDataFrame"] {{ font-size: 13px; }}
 h1, h2, h3 {{ letter-spacing: -0.02em; }}
 </style>
 """, unsafe_allow_html=True)
