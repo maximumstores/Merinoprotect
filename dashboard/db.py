@@ -245,7 +245,7 @@ def _database_url() -> str:
 
 @st.cache_resource
 def get_conn():
-    conn = psycopg2.connect(_database_url())
+    conn = psycopg2.connect(_database_url(), connect_timeout=10)
     conn.autocommit = True
     return conn
 
