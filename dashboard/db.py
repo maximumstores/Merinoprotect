@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Общий модуль дашборда: БД, i18n, темы, навигация, UI-хелперы."""
+"""Общий модуль дашборда: БД, i18n, темы, навигация, UI-хелперы, HTML-таблицы."""
 
 import base64
 import os
@@ -35,15 +35,17 @@ def mp_label(mp_id: str) -> str:
 THEMES = {
     "dark": {
         "bg": "#0e1117", "sidebar": "#161a24", "card": "#1a1f2e",
-        "border": "rgba(255,255,255,0.06)", "text": "#f0f2f6",
+        "border": "rgba(255,255,255,0.08)", "text": "#f0f2f6",
         "muted": "#8b93a7", "grid": "rgba(255,255,255,0.06)",
         "chart_font": "#c9d1e0", "logo_filter": "none",
+        "row_hover": "rgba(16,185,129,0.08)",
     },
     "light": {
         "bg": "#f7f8fa", "sidebar": "#ffffff", "card": "#ffffff",
-        "border": "rgba(0,0,0,0.08)", "text": "#1a1f2e",
+        "border": "rgba(0,0,0,0.10)", "text": "#1a1f2e",
         "muted": "#5b6472", "grid": "rgba(0,0,0,0.07)",
         "chart_font": "#3a4150", "logo_filter": "invert(1)",
+        "row_hover": "rgba(16,185,129,0.08)",
     },
 }
 
@@ -91,6 +93,7 @@ TRANSLATIONS = {
         "total_rows": "всього рядків", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Топ-15 SKU за fulfillable", "stock_by_sku": "Залишки за SKU",
         "snapshot": "знімок", "col_name": "Назва", "col_photo": "Фото",
+        "col_qty": "Кількість",
         "no_inventory": "Немає даних у fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Дані з merinoprotect · кеш 10 хв",
@@ -112,6 +115,7 @@ TRANSLATIONS = {
         "total_rows": "всего строк", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Топ-15 SKU по fulfillable", "stock_by_sku": "Остатки по SKU",
         "snapshot": "снапшот", "col_name": "Название", "col_photo": "Фото",
+        "col_qty": "Кол-во",
         "no_inventory": "Нет данных в fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Данные из merinoprotect · кэш 10 мин",
@@ -133,6 +137,7 @@ TRANSLATIONS = {
         "total_rows": "total rows", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Top-15 SKU by fulfillable", "stock_by_sku": "Stock by SKU",
         "snapshot": "snapshot", "col_name": "Product name", "col_photo": "Photo",
+        "col_qty": "Qty",
         "no_inventory": "No data in fba_inventory — run 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Data from merinoprotect · cache 10 min",
@@ -152,10 +157,10 @@ def t(key: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def _logo_b64() -> str | None:
-    """Читаем лого один раз, отдаём как base64 — не зависит от рабочих путей."""
     here = os.path.dirname(os.path.abspath(__file__))
-    for name in ("logo.png", "Logo.png", "logo.PNG"):
-        p = os.path.join(here, "assets", name)
+    for name in ("logo.png", "Logo.png", "logo.PNG",
+                 os.path.join("assets", "logo.png")):
+        p = os.path.join(here, name)
         if os.path.exists(p):
             with open(p, "rb") as f:
                 return base64.b64encode(f.read()).decode()
@@ -163,7 +168,6 @@ def _logo_b64() -> str | None:
 
 
 def lang_selector() -> str:
-    """Сайдбар: лого + навігація + мова + тема."""
     if "lang" not in st.session_state:
         st.session_state["lang"] = "uk"
     if "theme" not in st.session_state:
@@ -243,6 +247,7 @@ def q(sql: str, params: tuple = ()) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------- UI ----
+
 def inject_css():
     th = cur_theme()
     st.markdown(f"""
@@ -265,7 +270,7 @@ footer {{ visibility: hidden; }}
 .block-container {{ padding-top: 1.6rem; padding-bottom: 2rem; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
 
-/* Селектбокси і випадаючі списки — максимально широкі селектори */
+/* Селектбокси і випадаючі списки */
 div[data-baseweb="select"] > div,
 div[data-baseweb="select"] div,
 [data-testid="stSelectbox"] * {{
@@ -273,37 +278,27 @@ div[data-baseweb="select"] div,
     color: {th["text"]} !important;
     border-color: {th["border"]} !important;
 }}
-ul[role="listbox"],
-div[data-baseweb="popover"],
-div[data-baseweb="menu"] {{
+ul[role="listbox"], div[data-baseweb="popover"], div[data-baseweb="menu"] {{
     background-color: {th["card"]} !important;
 }}
-li[role="option"],
-li[role="option"] * {{
+li[role="option"], li[role="option"] * {{
     background-color: {th["card"]} !important;
     color: {th["text"]} !important;
 }}
-li[role="option"]:hover {{
-    background-color: {th["border"]} !important;
-}}
+li[role="option"]:hover {{ background-color: {th["border"]} !important; }}
 
-/* Текстові поля */
 [data-testid="stTextInput"] input {{
     background-color: {th["card"]} !important;
     color: {th["text"]} !important;
     border-color: {th["border"]} !important;
 }}
 
-/* Кнопки (крім активної primary — вона завжди зелена) */
-button[kind="secondary"],
-button[kind="secondary"] * {{
+button[kind="secondary"], button[kind="secondary"] * {{
     background-color: {th["card"]} !important;
     color: {th["text"]} !important;
     border-color: {th["border"]} !important;
 }}
-button[kind="secondary"]:hover {{
-    border-color: {ACCENT} !important;
-}}
+button[kind="secondary"]:hover {{ border-color: {ACCENT} !important; }}
 
 .mp-card {{
     background: {th["card"]};
@@ -317,6 +312,50 @@ button[kind="secondary"]:hover {{
 .mp-card .s {{ color: {th["muted"]}; font-size: 12px; margin-top: 4px; }}
 .mp-card .d-up   {{ color: #10b981; font-size: 13px; margin-top: 4px; }}
 .mp-card .d-down {{ color: #ef4444; font-size: 13px; margin-top: 4px; }}
+
+/* Кастомна HTML-таблиця — повністю під нашою темою */
+.mp-table-wrap {{
+    overflow-y: auto;
+    border: 1px solid {th["border"]};
+    border-radius: 10px;
+    background: {th["card"]};
+}}
+.mp-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}}
+.mp-table thead th {{
+    position: sticky;
+    top: 0;
+    background: {th["card"]};
+    color: {th["muted"]};
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid {th["border"]};
+    font-weight: 600;
+    z-index: 1;
+    white-space: nowrap;
+}}
+.mp-table tbody td {{
+    padding: 7px 12px;
+    border-bottom: 1px solid {th["border"]};
+    color: {th["text"]};
+    vertical-align: middle;
+}}
+.mp-table tbody tr:hover {{ background: {th["row_hover"]}; }}
+.mp-table tbody tr.row-zero {{ background: rgba(239,68,68,0.14); }}
+.mp-table tbody tr.row-low {{ background: rgba(245,158,11,0.12); }}
+.mp-table a {{ color: {ACCENT2}; text-decoration: none; font-weight: 500; }}
+.mp-table a:hover {{ text-decoration: underline; }}
+.mp-table img.mp-thumb {{
+    width: 34px; height: 34px; object-fit: cover; border-radius: 6px;
+    background: rgba(128,128,128,0.15); display: block;
+}}
+.mp-thumb-empty {{
+    width: 34px; height: 34px; border-radius: 6px;
+    background: rgba(128,128,128,0.15); display: block;
+}}
 
 h1, h2, h3 {{ letter-spacing: -0.02em; }}
 </style>
@@ -338,5 +377,39 @@ def metric_card(title: str, value: str, delta: str | None = None,
     )
 
 
-# Обратная совместимость: если где-то остался PLOTLY_LAYOUT — тёмный по умолчанию
-PLOTLY_LAYOUT = plotly_layout() if hasattr(st, "session_state") else {}
+# ------------------------------------------------------ HTML-таблиці ----
+
+def cell_photo(url) -> str:
+    """Комірка з мініатюрою фото (або порожня заглушка)."""
+    if url and isinstance(url, str) and url.strip():
+        return (f'<img class="mp-thumb" src="{url}" '
+                f'onerror="this.outerHTML=\'<div class=mp-thumb-empty></div>\'">')
+    return '<div class="mp-thumb-empty"></div>'
+
+
+def cell_link(url, text) -> str:
+    """Кліковане посилання (наприклад ASIN -> Amazon listing)."""
+    if not url or not text:
+        return str(text or "")
+    return f'<a href="{url}" target="_blank">{text}</a>'
+
+
+def render_html_table(rows, columns, height=420):
+    """Кастомна HTML-таблиця, що повністю підпорядковується поточній темі.
+
+    rows: список dict-подібних рядків
+    columns: список (header_label, render_fn) де render_fn(row) -> HTML комірки
+    """
+    parts = [f'<div class="mp-table-wrap" style="max-height:{height}px;">',
+             '<table class="mp-table"><thead><tr>']
+    for label, _ in columns:
+        parts.append(f"<th>{label}</th>")
+    parts.append("</tr></thead><tbody>")
+    for row in rows:
+        row_cls = row.get("_row_class", "") if isinstance(row, dict) else ""
+        parts.append(f'<tr class="{row_cls}">')
+        for _, render_fn in columns:
+            parts.append(f"<td>{render_fn(row)}</td>")
+        parts.append("</tr>")
+    parts.append("</tbody></table></div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
