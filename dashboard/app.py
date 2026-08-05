@@ -9,7 +9,7 @@ import streamlit as st
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 inject_css, lang_selector, metric_card, mp_label,
-                plotly_layout, q, render_html_table, t)
+                plotly_layout, q, render_html_table, sort_controls, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
 lang_selector()
@@ -17,7 +17,6 @@ inject_css()
 
 st.markdown(f"## {t('overview_title')}")
 
-# ------------------------------------------------------------ фільтри ----
 mps = q("SELECT DISTINCT marketplace_id FROM merinoprotect.orders ORDER BY 1")
 mp_options = ["All"] + mps["marketplace_id"].dropna().tolist()
 
@@ -35,7 +34,6 @@ prev_from = (now_utc - timedelta(days=period * 2)).strftime("%Y-%m-%d")
 mp_where = "" if mp_sel == "All" else "AND marketplace_id = %s"
 mp_params: tuple = () if mp_sel == "All" else (mp_sel,)
 
-# ------------------------------------------------------------- дані ----
 orders_2p = q(f"""
     SELECT amazon_order_id, purchase_date, order_status, marketplace_id,
            order_total_amount, order_total_currency
@@ -98,7 +96,6 @@ def pct_delta(cur, prev):
     return f"{abs(change):.0f}%", change >= 0
 
 
-# ------------------------------------------------------------ картки ----
 d_orders, up_orders = pct_delta(n_orders, n_prev)
 d_rev, up_rev = pct_delta(main_rev, prev_rev)
 
@@ -119,7 +116,6 @@ with c4:
 
 st.markdown("")
 
-# ------------------------------------------------------ графік: дні ----
 daily = (orders.groupby("day")
          .agg(orders=("amazon_order_id", "count")).reset_index())
 daily_rev = (main_cur_orders.groupby("day")["order_total_amount"]
@@ -134,13 +130,11 @@ fig.add_scatter(x=daily["day"], y=daily["revenue"],
                 yaxis="y2", mode="lines+markers",
                 line=dict(color=ACCENT2, width=2))
 fig.update_layout(
-    **plotly_layout(),
-    title=t("chart_daily"),
+    **plotly_layout(title=t("chart_daily")),
     yaxis2=dict(overlaying="y", side="right", showgrid=False),
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------------------------- топ SKU + останні замовлення ----
 g1, g2 = st.columns([1, 1])
 
 with g1:
@@ -160,7 +154,7 @@ with g1:
             x=top_sku_sorted["qty"], y=top_sku_sorted["seller_sku"], orientation="h",
             marker_color=ACCENT, text=top_sku_sorted["qty"], textposition="outside",
         ))
-        f2.update_layout(**plotly_layout(), title=t("top10_sku"))
+        f2.update_layout(**plotly_layout(title=t("top10_sku")))
         st.plotly_chart(f2, use_container_width=True)
 
         asins = tuple(top_sku["asin"].dropna().unique())
@@ -178,7 +172,12 @@ with g1:
             "https://" + top_tbl["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
             + "/dp/" + top_tbl["asin"].fillna("")
         )
-        top_tbl = top_tbl.sort_values("qty", ascending=False)
+
+        sort_col, sort_asc = sort_controls(
+            {"SKU": "seller_sku", "ASIN": "asin", t("col_qty"): "qty"},
+            key="topsku", default_index=2, default_desc=True,
+        )
+        top_tbl = top_tbl.sort_values(sort_col, ascending=sort_asc)
 
         rows = top_tbl.to_dict("records")
         columns = [
@@ -223,6 +222,13 @@ with g2:
         axis=1,
     )
 
+    sort_col20, sort_asc20 = sort_controls(
+        {t("col_date"): "purchase_date", t("col_status"): "order_status",
+         t("col_market"): "market_label", t("col_sum"): "order_total_amount"},
+        key="last20", default_index=0, default_desc=True,
+    )
+    last20 = last20.sort_values(sort_col20, ascending=sort_asc20)
+
     rows20 = last20.to_dict("records")
     columns20 = [
         ("", lambda r: cell_photo(r.get("image_url"))),
@@ -233,6 +239,6 @@ with g2:
         (t("col_market"), lambda r: r.get("market_label") or ""),
         (t("col_sum"), lambda r: r.get("sum_label") or ""),
     ]
-    render_html_table(rows20, columns20, height=420)
+    render_html_table(rows20, columns20, height=380)
 
 st.caption(t("cache_note"))
