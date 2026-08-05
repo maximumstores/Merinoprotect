@@ -44,7 +44,7 @@ THEMES = {
         "bg": "#f7f8fa", "sidebar": "#ffffff", "card": "#ffffff",
         "border": "rgba(0,0,0,0.10)", "text": "#1a1f2e",
         "muted": "#5b6472", "grid": "rgba(0,0,0,0.07)",
-        "chart_font": "#3a4150", "logo_filter": "invert(1)",
+        "chart_font": "#1a1f2e", "logo_filter": "invert(1)",
         "row_hover": "rgba(16,185,129,0.08)",
     },
 }
@@ -57,9 +57,12 @@ def cur_theme() -> dict:
     return THEMES[st.session_state.get("theme", "dark")]
 
 
-def plotly_layout() -> dict:
+def plotly_layout(title: str | None = None) -> dict:
+    """Базовий layout для plotly. Якщо передано title — колір title
+    примусово прив'язується до теми (інакше на світлій темі текст
+    заголовку лишається білим і зникає)."""
     th = cur_theme()
-    return dict(
+    layout = dict(
         template="plotly_dark" if st.session_state.get("theme", "dark") == "dark"
                  else "plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -67,19 +70,23 @@ def plotly_layout() -> dict:
         font=dict(color=th["chart_font"], size=12),
         margin=dict(l=10, r=10, t=36, b=10),
         height=340,
-        xaxis=dict(showgrid=False),
-        yaxis=dict(gridcolor=th["grid"]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        xaxis=dict(showgrid=False, color=th["chart_font"]),
+        yaxis=dict(gridcolor=th["grid"], color=th["chart_font"]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0,
+                    font=dict(color=th["chart_font"])),
     )
+    if title:
+        layout["title"] = dict(text=title, font=dict(color=th["chart_font"], size=15))
+    return layout
 
 
 # ------------------------------------------------------------- i18n ----
 
 TRANSLATIONS = {
     "uk": {
-        "nav_overview": "📊 Огляд", "nav_stock": "📦 Залишки",
+        "nav_overview": "Огляд", "nav_stock": "Залишки",
         "overview_title": "Merinoprotect — Огляд",
-        "stock_title": "📦 Залишки FBA",
+        "stock_title": "Залишки FBA",
         "marketplace": "Маркетплейс", "period": "Період", "days": "днів",
         "orders_n": "Замовлення", "revenue": "Виручка",
         "avg_check": "Середній чек", "orders_today": "Замовлень сьогодні",
@@ -97,11 +104,12 @@ TRANSLATIONS = {
         "no_inventory": "Немає даних у fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Дані з merinoprotect · кеш 10 хв",
+        "sort_by": "Сортувати за", "sort_asc": "За зростанням", "sort_desc": "За спаданням",
     },
     "ru": {
-        "nav_overview": "📊 Обзор", "nav_stock": "📦 Остатки",
+        "nav_overview": "Обзор", "nav_stock": "Остатки",
         "overview_title": "Merinoprotect — Обзор",
-        "stock_title": "📦 Остатки FBA",
+        "stock_title": "Остатки FBA",
         "marketplace": "Маркетплейс", "period": "Период", "days": "дней",
         "orders_n": "Заказы", "revenue": "Выручка",
         "avg_check": "Средний чек", "orders_today": "Заказов сегодня",
@@ -119,11 +127,12 @@ TRANSLATIONS = {
         "no_inventory": "Нет данных в fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Данные из merinoprotect · кэш 10 мин",
+        "sort_by": "Сортировать по", "sort_asc": "По возрастанию", "sort_desc": "По убыванию",
     },
     "en": {
-        "nav_overview": "📊 Overview", "nav_stock": "📦 Stock",
+        "nav_overview": "Overview", "nav_stock": "Stock",
         "overview_title": "Merinoprotect — Overview",
-        "stock_title": "📦 FBA Stock",
+        "stock_title": "FBA Stock",
         "marketplace": "Marketplace", "period": "Period", "days": "days",
         "orders_n": "Orders", "revenue": "Revenue",
         "avg_check": "Avg order value", "orders_today": "Orders today",
@@ -141,6 +150,7 @@ TRANSLATIONS = {
         "no_inventory": "No data in fba_inventory — run 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Data from merinoprotect · cache 10 min",
+        "sort_by": "Sort by", "sort_asc": "Ascending", "sort_desc": "Descending",
     },
 }
 
@@ -182,8 +192,9 @@ def lang_selector() -> str:
                 f'style="max-width: 175px; width: 100%;" /></div>',
                 unsafe_allow_html=True,
             )
-        st.page_link("app.py", label=t("nav_overview"))
-        st.page_link("pages/1_Stock.py", label=t("nav_stock"))
+        # тонкі лінійні іконки (Material Symbols), не емодзі
+        st.page_link("app.py", label=t("nav_overview"), icon=":material/bar_chart:")
+        st.page_link("pages/1_Stock.py", label=t("nav_stock"), icon=":material/inventory_2:")
         st.markdown("---")
 
         cols = st.columns(3)
@@ -199,12 +210,14 @@ def lang_selector() -> str:
 
         tc1, tc2 = st.columns(2)
         with tc1:
-            if st.button("🌙 Dark", key="th_dark", use_container_width=True,
+            if st.button("Dark", key="th_dark", use_container_width=True,
+                         icon=":material/dark_mode:",
                          type="primary" if st.session_state["theme"] == "dark" else "secondary"):
                 st.session_state["theme"] = "dark"
                 st.rerun()
         with tc2:
-            if st.button("☀️ Light", key="th_light", use_container_width=True,
+            if st.button("Light", key="th_light", use_container_width=True,
+                         icon=":material/light_mode:",
                          type="primary" if st.session_state["theme"] == "light" else "secondary"):
                 st.session_state["theme"] = "light"
                 st.rerun()
@@ -270,7 +283,6 @@ footer {{ visibility: hidden; }}
 .block-container {{ padding-top: 1.6rem; padding-bottom: 2rem; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
 
-/* Селектбокси і випадаючі списки */
 div[data-baseweb="select"] > div,
 div[data-baseweb="select"] div,
 [data-testid="stSelectbox"] * {{
@@ -300,6 +312,8 @@ button[kind="secondary"], button[kind="secondary"] * {{
 }}
 button[kind="secondary"]:hover {{ border-color: {ACCENT} !important; }}
 
+[data-testid="stPageLink"] * {{ color: {th["text"]} !important; }}
+
 .mp-card {{
     background: {th["card"]};
     border: 1px solid {th["border"]};
@@ -313,7 +327,6 @@ button[kind="secondary"]:hover {{ border-color: {ACCENT} !important; }}
 .mp-card .d-up   {{ color: #10b981; font-size: 13px; margin-top: 4px; }}
 .mp-card .d-down {{ color: #ef4444; font-size: 13px; margin-top: 4px; }}
 
-/* Кастомна HTML-таблиця — повністю під нашою темою */
 .mp-table-wrap {{
     overflow-y: auto;
     border: 1px solid {th["border"]};
@@ -380,7 +393,6 @@ def metric_card(title: str, value: str, delta: str | None = None,
 # ------------------------------------------------------ HTML-таблиці ----
 
 def cell_photo(url) -> str:
-    """Комірка з мініатюрою фото (або порожня заглушка)."""
     if url and isinstance(url, str) and url.strip():
         return (f'<img class="mp-thumb" src="{url}" '
                 f'onerror="this.outerHTML=\'<div class=mp-thumb-empty></div>\'">')
@@ -388,18 +400,12 @@ def cell_photo(url) -> str:
 
 
 def cell_link(url, text) -> str:
-    """Кліковане посилання (наприклад ASIN -> Amazon listing)."""
     if not url or not text:
         return str(text or "")
     return f'<a href="{url}" target="_blank">{text}</a>'
 
 
 def render_html_table(rows, columns, height=420):
-    """Кастомна HTML-таблиця, що повністю підпорядковується поточній темі.
-
-    rows: список dict-подібних рядків
-    columns: список (header_label, render_fn) де render_fn(row) -> HTML комірки
-    """
     parts = [f'<div class="mp-table-wrap" style="max-height:{height}px;">',
              '<table class="mp-table"><thead><tr>']
     for label, _ in columns:
@@ -413,3 +419,20 @@ def render_html_table(rows, columns, height=420):
         parts.append("</tr>")
     parts.append("</tbody></table></div>")
     st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def sort_controls(options: dict, key: str, default_index: int = 0,
+                  default_desc: bool = True):
+    """Рядок керування сортуванням над таблицею.
+    options: {"Label": "df_column_name"}. Повертає (column, ascending)."""
+    labels = list(options.keys())
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        sel = st.selectbox(t("sort_by"), labels, index=default_index,
+                           key=f"sort_col_{key}", label_visibility="collapsed")
+    with c2:
+        order = st.selectbox(" ", [t("sort_desc"), t("sort_asc")],
+                             index=0 if default_desc else 1,
+                             key=f"sort_ord_{key}", label_visibility="collapsed")
+    ascending = order == t("sort_asc")
+    return options[sel], ascending
