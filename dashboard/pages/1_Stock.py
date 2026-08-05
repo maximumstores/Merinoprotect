@@ -9,13 +9,14 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (ACCENT, AMAZON_DOMAINS, PLOTLY_LAYOUT, inject_css,
-                lang_selector, metric_card, mp_label, q, t)
+from db import (ACCENT, AMAZON_DOMAINS, cell_link, cell_photo, inject_css,
+                lang_selector, metric_card, mp_label, plotly_layout, q,
+                render_html_table, sort_controls, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect · Stock",
                    page_icon="🐑")
-inject_css()
 lang_selector()
+inject_css()
 
 st.markdown(f"## {t('stock_title')}")
 
@@ -44,7 +45,6 @@ for col in ["fulfillable_quantity", "inbound_total", "reserved_total",
             "unfulfillable_total", "total_quantity"]:
     df_all[col] = df_all[col].fillna(0).astype(int)
 
-# ------------------------------------------------------------- картки ----
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     metric_card(t("sku_in_stock"),
@@ -60,7 +60,6 @@ with c4:
 
 st.markdown("")
 
-# --------------------------------------------------------------- графік ----
 top15 = (df_all.groupby("seller_sku")["fulfillable_quantity"].sum()
          .sort_values(ascending=False).head(15).sort_values())
 if len(top15):
@@ -68,10 +67,9 @@ if len(top15):
         x=top15.values, y=top15.index, orientation="h",
         marker_color=ACCENT, text=top15.values, textposition="outside",
     ))
-    fig.update_layout(**{**PLOTLY_LAYOUT, "height": 420}, title=t("top15_sku"))
+    fig.update_layout(**{**plotly_layout(title=t("top15_sku")), "height": 420})
     st.plotly_chart(fig, use_container_width=True)
 
-# ----------------------------------------- фільтри НАД таблицею ----
 st.markdown(f"**{t('stock_by_sku')}** · {t('snapshot')} {snapshot_date}")
 
 fc1, fc2, _ = st.columns([2, 3, 5])
@@ -89,42 +87,41 @@ if search.strip():
     df = df[df["seller_sku"].str.lower().str.contains(s, na=False)
             | df["product_name"].str.lower().str.contains(s, na=False)]
 
-# ASIN -> клікабельне посилання на лістинг потрібного маркетплейсу
 df["asin_link"] = ("https://" + df["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
                    + "/dp/" + df["asin"].fillna(""))
+df["market_label"] = df["marketplace_id"].map(mp_label)
 
-# --------------------------------------------------------------- таблиця ----
-show = (df[["image_url", "seller_sku", "asin_link", "product_name",
-            "marketplace_id", "fulfillable_quantity", "inbound_total",
-            "reserved_total", "unfulfillable_total", "total_quantity"]]
-        .sort_values("fulfillable_quantity", ascending=False)
-        .rename(columns={
-            "image_url": t("col_photo"), "seller_sku": "SKU",
-            "asin_link": "ASIN", "product_name": t("col_name"),
-            "marketplace_id": t("col_market"),
-            "fulfillable_quantity": "Fulfillable",
-            "inbound_total": "Inbound", "reserved_total": "Reserved",
-            "unfulfillable_total": "Unfulf.", "total_quantity": "Total",
-        }))
-show[t("col_market")] = show[t("col_market")].map(mp_label)
-
-
-def _row_style(row):
-    if row["Fulfillable"] == 0:
-        return ["background-color: rgba(239,68,68,0.12)"] * len(row)
-    if row["Fulfillable"] < 20:
-        return ["background-color: rgba(245,158,11,0.10)"] * len(row)
-    return [""] * len(row)
-
-
-st.dataframe(
-    show.style.apply(_row_style, axis=1),
-    hide_index=True, use_container_width=True, height=560,
-    column_config={
-        t("col_photo"): st.column_config.ImageColumn("", width="small"),
-        "ASIN": st.column_config.LinkColumn("ASIN", display_text=r".*/dp/(.*)"),
-        t("col_name"): st.column_config.TextColumn(t("col_name"), width="large"),
-    },
+sort_col, sort_asc = sort_controls(
+    {"SKU": "seller_sku", t("col_name"): "product_name",
+     t("col_market"): "market_label", "Fulfillable": "fulfillable_quantity",
+     "Inbound": "inbound_total", "Reserved": "reserved_total",
+     "Total": "total_quantity"},
+    key="stock", default_index=3, default_desc=True,
 )
+df = df.sort_values(sort_col, ascending=sort_asc)
+
+rows = []
+for rec in df.to_dict("records"):
+    if rec["fulfillable_quantity"] == 0:
+        rec["_row_class"] = "row-zero"
+    elif rec["fulfillable_quantity"] < 20:
+        rec["_row_class"] = "row-low"
+    else:
+        rec["_row_class"] = ""
+    rows.append(rec)
+
+columns = [
+    ("", lambda r: cell_photo(r.get("image_url"))),
+    ("SKU", lambda r: r.get("seller_sku") or ""),
+    ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
+    (t("col_name"), lambda r: (r.get("product_name") or "")[:70]),
+    (t("col_market"), lambda r: r.get("market_label") or ""),
+    ("Fulfillable", lambda r: str(r.get("fulfillable_quantity", 0))),
+    ("Inbound", lambda r: str(r.get("inbound_total", 0))),
+    ("Reserved", lambda r: str(r.get("reserved_total", 0))),
+    ("Unfulf.", lambda r: str(r.get("unfulfillable_total", 0))),
+    ("Total", lambda r: str(r.get("total_quantity", 0))),
+]
+render_html_table(rows, columns, height=600)
 
 st.caption(t("legend_stock"))
