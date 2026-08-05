@@ -110,6 +110,40 @@ main_cur_orders = orders[orders["order_total_currency"] == main_cur]
 avg_check = (main_cur_orders["order_total_amount"].mean()
              if len(main_cur_orders) else 0)
 
+# ------------------------------------------------------ точна виручка ----
+# Orders API не завжди дає суму для Pending-замовлень (Amazon просто не
+# віддає OrderTotal, поки замовлення не підтверджене). Sales & Traffic
+# Report дає точну "Ordered Product Sales" — таку саму цифру, як у
+# Amazon Seller Central Sales Dashboard. Якщо дані вже завантажені —
+# використовуємо їх замість оцінки по Orders API.
+st_mp_where = "" if mp_sel == "All" else "AND marketplace_id = %s"
+st_mp_params = () if mp_sel == "All" else (mp_sel,)
+
+st_daily = q(f"""
+    SELECT report_date, ordered_product_sales, ordered_product_sales_currency,
+           units_ordered, sessions, page_views
+    FROM merinoprotect.sales_traffic_daily
+    WHERE report_date >= %s AND report_date <= %s
+      {st_mp_where}
+""", (date_from, now_utc.strftime("%Y-%m-%d"), *st_mp_params))
+
+use_accurate_revenue = not st_daily.empty
+sessions_total = 0
+conversion_pct = None
+
+if use_accurate_revenue:
+    st_rev_by_cur = (st_daily.groupby("ordered_product_sales_currency")
+                    ["ordered_product_sales"].sum().sort_values(ascending=False))
+    st_rev_by_cur = st_rev_by_cur[st_rev_by_cur.index.notna()]
+    if len(st_rev_by_cur):
+        main_cur = st_rev_by_cur.index[0]
+        main_rev = st_rev_by_cur.iloc[0]
+        other = " · ".join(f"{v:,.0f} {c}" for c, v in st_rev_by_cur.iloc[1:].items())
+    sessions_total = int(st_daily["sessions"].sum())
+    units_from_traffic = int(st_daily["units_ordered"].sum())
+    if sessions_total > 0:
+        conversion_pct = units_from_traffic / sessions_total * 100
+
 orders_today = int(
     (orders["purchase_date"].dt.tz_convert(PACIFIC).dt.date
      == datetime.now(PACIFIC).date()).sum()
@@ -131,11 +165,22 @@ d_rev, up_rev = pct_delta(main_rev, prev_rev)
 
 period_label = t("today_option") if is_today_mode else f"{period} {t('days')}"
 
-# якщо всі замовлення за період ще Pending — сума ще невідома у Amazon,
-# показуємо це явно замість оманливого "0"
-all_pending_period = pending_count == n_orders and n_orders > 0
+# "очікує підтвердження" показуємо тільки якщо НЕМАЄ точних даних
+# з Sales & Traffic Report — якщо вони є, довіряємо їм навіть за Pending
+all_pending_period = (pending_count == n_orders and n_orders > 0
+                      and not use_accurate_revenue)
 rev_display = (t("pending_note") if all_pending_period
               else f"{main_rev:,.0f} {main_cur}")
+
+rev_sub = None
+if all_pending_period:
+    rev_sub = None
+elif use_accurate_revenue and conversion_pct is not None:
+    rev_sub = f"{t('conversion_label')}: {conversion_pct:.1f}% · {sessions_total:,} {t('sessions_label')}"
+    if other:
+        rev_sub = f"{other} · {rev_sub}"
+elif other:
+    rev_sub = other
 
 c1, c2, c3, c4 = st.columns(4)
 with c1:
@@ -146,7 +191,7 @@ with c2:
                 rev_display,
                 delta=None if all_pending_period else d_rev,
                 delta_up=up_rev,
-                sub=None if all_pending_period else (other if other else None))
+                sub=rev_sub)
 with c3:
     metric_card(t("avg_check"), f"{avg_check:,.2f} {main_cur}"
                 if not all_pending_period else "—")
