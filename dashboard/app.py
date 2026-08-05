@@ -7,8 +7,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, inject_css, lang_selector,
-                metric_card, mp_label, plotly_layout, q, t)
+from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
+                inject_css, lang_selector, metric_card, mp_label,
+                plotly_layout, q, render_html_table, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
 lang_selector()
@@ -64,7 +65,6 @@ if orders.empty:
 n_orders = len(orders)
 n_prev = len(orders_prev)
 
-# чи достатньо історії в БД, щоб взагалі показувати дельту "попередній період"
 earliest_date = orders_2p["day"].min()
 enough_history = earliest_date <= (now_utc - timedelta(days=period * 2 - 1)).date()
 
@@ -90,9 +90,6 @@ pending_count = int((orders["order_status"] == "Pending").sum())
 
 
 def pct_delta(cur, prev):
-    """Дельта у % проти попереднього періоду.
-    Повертає None, якщо даних замало для чесного порівняння —
-    щоб не показувати сміттєві +14900% на неповній історії."""
     if not enough_history or not prev or prev < 5:
         return None, True
     change = (cur - prev) / prev * 100
@@ -181,20 +178,16 @@ with g1:
             "https://" + top_tbl["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
             + "/dp/" + top_tbl["asin"].fillna("")
         )
-        top_tbl = top_tbl.sort_values("qty", ascending=False)[
-            ["image_url", "seller_sku", "asin_link", "qty"]
-        ].rename(columns={
-            "image_url": t("col_photo"), "seller_sku": "SKU",
-            "asin_link": "ASIN", "qty": "Qty",
-        })
+        top_tbl = top_tbl.sort_values("qty", ascending=False)
 
-        st.dataframe(
-            top_tbl, hide_index=True, use_container_width=True, height=280,
-            column_config={
-                t("col_photo"): st.column_config.ImageColumn("", width="small"),
-                "ASIN": st.column_config.LinkColumn("ASIN", display_text=r".*/dp/(.*)"),
-            },
-        )
+        rows = top_tbl.to_dict("records")
+        columns = [
+            ("", lambda r: cell_photo(r.get("image_url"))),
+            ("SKU", lambda r: r.get("seller_sku") or ""),
+            ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
+            (t("col_qty"), lambda r: str(int(r.get("qty", 0)))),
+        ]
+        render_html_table(rows, columns, height=280)
 
 with g2:
     st.markdown(f"**{t('last20')}**")
@@ -222,31 +215,24 @@ with g2:
         "https://" + last20["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
         + "/dp/" + last20["asin"].fillna("")
     )
-
-    last20[t("col_market")] = last20["marketplace_id"].map(mp_label)
-    last20[t("col_date")] = last20["purchase_date"].dt.strftime("%d.%m %H:%M")
-    last20[t("col_sum")] = last20.apply(
+    last20["market_label"] = last20["marketplace_id"].map(mp_label)
+    last20["date_label"] = last20["purchase_date"].dt.strftime("%d.%m %H:%M")
+    last20["sum_label"] = last20.apply(
         lambda r: "—" if pd.isna(r["order_total_amount"]) or r["order_total_amount"] == 0
         else f"{r['order_total_amount']:,.2f} {r['order_total_currency'] or ''}",
         axis=1,
     )
 
-    show20 = (last20[["image_url", "amazon_order_id", "asin_link",
-                      t("col_date"), "order_status", t("col_market"), t("col_sum")]]
-              .rename(columns={
-                  "image_url": t("col_photo"),
-                  "amazon_order_id": t("col_order"),
-                  "asin_link": "ASIN",
-                  "order_status": t("col_status"),
-              }))
-
-    st.dataframe(
-        show20,
-        hide_index=True, use_container_width=True, height=420,
-        column_config={
-            t("col_photo"): st.column_config.ImageColumn("", width="small"),
-            "ASIN": st.column_config.LinkColumn("ASIN", display_text=r".*/dp/(.*)"),
-        },
-    )
+    rows20 = last20.to_dict("records")
+    columns20 = [
+        ("", lambda r: cell_photo(r.get("image_url"))),
+        (t("col_order"), lambda r: r.get("amazon_order_id") or ""),
+        ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
+        (t("col_date"), lambda r: r.get("date_label") or ""),
+        (t("col_status"), lambda r: r.get("order_status") or ""),
+        (t("col_market"), lambda r: r.get("market_label") or ""),
+        (t("col_sum"), lambda r: r.get("sum_label") or ""),
+    ]
+    render_html_table(rows20, columns20, height=420)
 
 st.caption(t("cache_note"))
