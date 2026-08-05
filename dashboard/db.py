@@ -105,6 +105,7 @@ TRANSLATIONS = {
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Дані з merinoprotect · кеш 10 хв",
         "sort_by": "Сортувати за", "sort_asc": "За зростанням", "sort_desc": "За спаданням",
+        "sort_order_label": "Порядок",
     },
     "ru": {
         "nav_overview": "Обзор", "nav_stock": "Остатки",
@@ -128,6 +129,7 @@ TRANSLATIONS = {
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Данные из merinoprotect · кэш 10 мин",
         "sort_by": "Сортировать по", "sort_asc": "По возрастанию", "sort_desc": "По убыванию",
+        "sort_order_label": "Порядок",
     },
     "en": {
         "nav_overview": "Overview", "nav_stock": "Stock",
@@ -151,6 +153,7 @@ TRANSLATIONS = {
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
         "cache_note": "Data from merinoprotect · cache 10 min",
         "sort_by": "Sort by", "sort_asc": "Ascending", "sort_desc": "Descending",
+        "sort_order_label": "Order",
     },
 }
 
@@ -192,7 +195,6 @@ def lang_selector() -> str:
                 f'style="max-width: 175px; width: 100%;" /></div>',
                 unsafe_allow_html=True,
             )
-        # тонкі лінійні іконки (Material Symbols), не емодзі
         st.page_link("app.py", label=t("nav_overview"), icon=":material/bar_chart:")
         st.page_link("pages/1_Stock.py", label=t("nav_stock"), icon=":material/inventory_2:")
         st.markdown("---")
@@ -243,7 +245,7 @@ def _database_url() -> str:
 
 @st.cache_resource
 def get_conn():
-    conn = psycopg2.connect(_database_url())
+    conn = psycopg2.connect(_database_url(), connect_timeout=10)
     conn.autocommit = True
     return conn
 
@@ -423,16 +425,16 @@ def render_html_table(rows, columns, height=420):
 
 def sort_controls(options: dict, key: str, default_index: int = 0,
                   default_desc: bool = True):
-    """Рядок керування сортуванням над таблицею.
-    options: {"Label": "df_column_name"}. Повертає (column, ascending)."""
+    """Компактний рядок керування сортуванням (одна строка, малий шрифт)."""
     labels = list(options.keys())
-    c1, c2 = st.columns([3, 1])
+    th = cur_theme()
+    c1, c2 = st.columns([2, 2])
     with c1:
         sel = st.selectbox(t("sort_by"), labels, index=default_index,
-                           key=f"sort_col_{key}", label_visibility="collapsed")
+                           key=f"sort_col_{key}")
     with c2:
-        order = st.selectbox(" ", [t("sort_desc"), t("sort_asc")],
+        order = st.selectbox(t("sort_order_label"), [t("sort_desc"), t("sort_asc")],
                              index=0 if default_desc else 1,
-                             key=f"sort_ord_{key}", label_visibility="collapsed")
+                             key=f"sort_ord_{key}")
     ascending = order == t("sort_asc")
     return options[sel], ascending
