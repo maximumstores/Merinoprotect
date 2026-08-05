@@ -64,6 +64,10 @@ if orders.empty:
 n_orders = len(orders)
 n_prev = len(orders_prev)
 
+# чи достатньо історії в БД, щоб взагалі показувати дельту "попередній період"
+earliest_date = orders_2p["day"].min()
+enough_history = earliest_date <= (now_utc - timedelta(days=period * 2 - 1)).date()
+
 rev_by_cur = (orders.groupby("order_total_currency")["order_total_amount"]
               .sum().sort_values(ascending=False))
 rev_by_cur = rev_by_cur[rev_by_cur.index.notna()]
@@ -86,9 +90,14 @@ pending_count = int((orders["order_status"] == "Pending").sum())
 
 
 def pct_delta(cur, prev):
-    if not prev:
+    """Дельта у % проти попереднього періоду.
+    Повертає None, якщо даних замало для чесного порівняння —
+    щоб не показувати сміттєві +14900% на неповній історії."""
+    if not enough_history or not prev or prev < 5:
         return None, True
     change = (cur - prev) / prev * 100
+    if abs(change) > 500:
+        return None, True
     return f"{abs(change):.0f}%", change >= 0
 
 
@@ -157,7 +166,6 @@ with g1:
         f2.update_layout(**plotly_layout(), title=t("top10_sku"))
         st.plotly_chart(f2, use_container_width=True)
 
-        # фото + клікабельний ASIN під графіком (plotly-бари самі не клікабельні)
         asins = tuple(top_sku["asin"].dropna().unique())
         if asins:
             photos = q("""
