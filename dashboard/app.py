@@ -7,17 +7,17 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, PLOTLY_LAYOUT, inject_css,
-                lang_selector, metric_card, mp_label, q, t)
+from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, inject_css, lang_selector,
+                metric_card, mp_label, plotly_layout, q, t)
 
-st.set_page_config(layout="wide", page_title="MERINNOVATION", page_icon="🐑")
-inject_css()
+st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
 lang_selector()
+inject_css()
 
 st.markdown(f"## {t('overview_title')}")
 
 # ------------------------------------------------------------ фільтри ----
-mps = q("SELECT DISTINCT marketplace_id FROM MERINNOVATION.orders ORDER BY 1")
+mps = q("SELECT DISTINCT marketplace_id FROM merinoprotect.orders ORDER BY 1")
 mp_options = ["All"] + mps["marketplace_id"].dropna().tolist()
 
 fc1, fc2, _ = st.columns([2, 2, 6])
@@ -35,7 +35,7 @@ mp_where = "" if mp_sel == "All" else "AND marketplace_id = %s"
 mp_params: tuple = () if mp_sel == "All" else (mp_sel,)
 
 # ------------------------------------------------------------- дані ----
-# тягнемо одразу 2 періоди (поточний + попередній) для дельт
+# одразу 2 періоди (поточний + попередній) для дельт
 orders_2p = q(f"""
     SELECT amazon_order_id, purchase_date, order_status, marketplace_id,
            order_total_amount, order_total_currency
@@ -65,7 +65,6 @@ if orders.empty:
 n_orders = len(orders)
 n_prev = len(orders_prev)
 
-# виручка за валютами; основна = де більше грошей
 rev_by_cur = (orders.groupby("order_total_currency")["order_total_amount"]
               .sum().sort_values(ascending=False))
 rev_by_cur = rev_by_cur[rev_by_cur.index.notna()]
@@ -88,7 +87,6 @@ pending_count = int((orders["order_status"] == "Pending").sum())
 
 
 def pct_delta(cur, prev):
-    """Дельта у % проти попереднього періоду."""
     if not prev:
         return None, True
     change = (cur - prev) / prev * 100
@@ -131,7 +129,7 @@ fig.add_scatter(x=daily["day"], y=daily["revenue"],
                 yaxis="y2", mode="lines+markers",
                 line=dict(color=ACCENT2, width=2))
 fig.update_layout(
-    **PLOTLY_LAYOUT,
+    **plotly_layout(),
     title=t("chart_daily"),
     yaxis2=dict(overlaying="y", side="right", showgrid=False),
 )
@@ -157,7 +155,7 @@ with g1:
             x=top_sku["qty"], y=top_sku["seller_sku"], orientation="h",
             marker_color=ACCENT, text=top_sku["qty"], textposition="outside",
         ))
-        f2.update_layout(**PLOTLY_LAYOUT, title=t("top10_sku"))
+        f2.update_layout(**plotly_layout(), title=t("top10_sku"))
         st.plotly_chart(f2, use_container_width=True)
 
 with g2:
@@ -190,7 +188,6 @@ with g2:
 
     last20[t("col_market")] = last20["marketplace_id"].map(mp_label)
     last20[t("col_date")] = last20["purchase_date"].dt.strftime("%d.%m %H:%M")
-    # Pending без суми -> прочерк замість 0.00
     last20[t("col_sum")] = last20.apply(
         lambda r: "—" if pd.isna(r["order_total_amount"]) or r["order_total_amount"] == 0
         else f"{r['order_total_amount']:,.2f} {r['order_total_currency'] or ''}",
