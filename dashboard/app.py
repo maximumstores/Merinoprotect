@@ -3,6 +3,12 @@
 
 from datetime import datetime, timedelta, timezone
 
+try:
+    from zoneinfo import ZoneInfo
+    PACIFIC = ZoneInfo("America/Los_Angeles")
+except Exception:
+    PACIFIC = timezone(timedelta(hours=-7))  # fallback, без DST
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -83,7 +89,10 @@ main_cur_orders = orders[orders["order_total_currency"] == main_cur]
 avg_check = (main_cur_orders["order_total_amount"].mean()
              if len(main_cur_orders) else 0)
 
-orders_today = int((orders["day"] == now_utc.date()).sum())
+orders_today = int(
+    (orders["purchase_date"].dt.tz_convert(PACIFIC).dt.date
+     == datetime.now(PACIFIC).date()).sum()
+)
 pending_count = int((orders["order_status"] == "Pending").sum())
 
 
@@ -112,7 +121,7 @@ with c3:
     metric_card(t("avg_check"), f"{avg_check:,.2f} {main_cur}")
 with c4:
     metric_card(t("orders_today"), f"{orders_today}",
-                sub=f"Pending: {pending_count}")
+                sub=f"Pending: {pending_count} · PDT")
 
 st.markdown("")
 
