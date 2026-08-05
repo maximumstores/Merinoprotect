@@ -10,7 +10,8 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (ACCENT, AMAZON_DOMAINS, cell_link, cell_photo, inject_css,
+from db import (ACCENT, AMAZON_DOMAINS, cell_link, cell_photo,
+                download_csv_button, inject_css,
                 lang_selector, metric_card, mp_label, plotly_layout, q,
                 render_html_table, sort_controls, t)
 
@@ -132,5 +133,11 @@ columns = [
     ("Total", lambda r: str(r.get("total_quantity", 0))),
 ]
 render_html_table(rows, columns, height=600)
+download_csv_button(
+    df[["seller_sku", "asin", "product_name", "market_label",
+       "fulfillable_quantity", "inbound_total", "reserved_total",
+       "unfulfillable_total", "total_quantity"]],
+    "stock", key="stock",
+)
 
 st.caption(t("legend_stock"))
