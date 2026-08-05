@@ -174,7 +174,7 @@ rev_display = (t("pending_note") if all_pending_period
 
 rev_sub = None
 if all_pending_period:
-    rev_sub = None
+    rev_sub = t("today_pending_hint") if is_today_mode else None
 elif use_accurate_revenue and conversion_pct is not None:
     rev_sub = f"{t('conversion_label')}: {conversion_pct:.1f}% · {sessions_total:,} {t('sessions_label')}"
     if other:
@@ -216,11 +216,17 @@ fig.add_scatter(x=daily["day"], y=daily["revenue"],
                 name=f"{t('revenue_series')}, {main_cur}",
                 yaxis="y2", mode="lines+markers",
                 line=dict(color=ACCENT2, width=2))
-fig.update_layout(
-    **plotly_layout(title=t("chart_daily")),
-    yaxis2=dict(overlaying="y", side="right", showgrid=False, color=chart_font_color,
-                tickfont=dict(color=chart_font_color)),
-)
+daily["day_label"] = daily["day"].astype(str)
+fig.data[0].x = daily["day_label"]
+fig.data[1].x = daily["day_label"]
+
+layout_kwargs = plotly_layout(title=t("chart_daily"))
+layout_kwargs["xaxis"] = dict(type="category", showgrid=False, color=chart_font_color,
+                              tickfont=dict(color=chart_font_color))
+layout_kwargs["yaxis2"] = dict(overlaying="y", side="right", showgrid=False,
+                               color=chart_font_color,
+                               tickfont=dict(color=chart_font_color))
+fig.update_layout(**layout_kwargs)
 st.plotly_chart(fig, use_container_width=True)
 
 top_sku = q(f"""
