@@ -14,8 +14,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
-                cur_theme, inject_css, lang_selector, metric_card, mp_label,
-                plotly_layout, q, render_html_table, sort_controls, t)
+                cur_theme, download_csv_button, inject_css, lang_selector,
+                metric_card, mp_label, plotly_layout, q, render_html_table,
+                sort_controls, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
 lang_selector()
@@ -279,6 +280,9 @@ if not top_sku.empty:
         (t("col_qty"), lambda r: str(int(r.get("qty", 0)))),
     ]
     render_html_table(rows, columns, height=280)
+    download_csv_button(
+        top_tbl[["seller_sku", "asin", "qty"]], "top_sku", key="topsku",
+    )
 
 st.markdown("")
 st.markdown(f"**{t('last20')}**")
@@ -345,5 +349,10 @@ columns20 = [
     (t("col_sum"), lambda r: r.get("sum_label") or ""),
 ]
 render_html_table(rows20, columns20, height=380)
+download_csv_button(
+    last20[["amazon_order_id", "asin", "date_label", "order_status",
+           "market_label", "sum_label"]],
+    "last20_orders", key="last20",
+)
 
 st.caption(t("cache_note"))
