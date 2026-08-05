@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
-                inject_css, lang_selector, metric_card, mp_label,
+                cur_theme, inject_css, lang_selector, metric_card, mp_label,
                 plotly_layout, q, render_html_table, sort_controls, t)
 
 st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
@@ -122,6 +122,8 @@ daily_rev = (main_cur_orders.groupby("day")["order_total_amount"]
              .sum().reset_index(name="revenue"))
 daily = daily.merge(daily_rev, on="day", how="left").fillna(0)
 
+chart_font_color = cur_theme()["chart_font"]
+
 fig = go.Figure()
 fig.add_bar(x=daily["day"], y=daily["orders"], name=t("orders_series"),
             marker_color=ACCENT, opacity=0.85)
@@ -131,7 +133,7 @@ fig.add_scatter(x=daily["day"], y=daily["revenue"],
                 line=dict(color=ACCENT2, width=2))
 fig.update_layout(
     **plotly_layout(title=t("chart_daily")),
-    yaxis2=dict(overlaying="y", side="right", showgrid=False),
+    yaxis2=dict(overlaying="y", side="right", showgrid=False, color=chart_font_color),
 )
 st.plotly_chart(fig, use_container_width=True)
 
