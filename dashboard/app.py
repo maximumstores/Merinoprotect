@@ -118,7 +118,7 @@ pending_count = int((orders["order_status"] == "Pending").sum())
 
 
 def pct_delta(cur, prev):
-    if not enough_history or not prev or prev < 5:
+    if is_today_mode or not enough_history or not prev or prev < 5:
         return None, True
     change = (cur - prev) / prev * 100
     if abs(change) > 500:
@@ -129,17 +129,27 @@ def pct_delta(cur, prev):
 d_orders, up_orders = pct_delta(n_orders, n_prev)
 d_rev, up_rev = pct_delta(main_rev, prev_rev)
 
+period_label = t("today_option") if is_today_mode else f"{period} {t('days')}"
+
+# якщо всі замовлення за період ще Pending — сума ще невідома у Amazon,
+# показуємо це явно замість оманливого "0"
+all_pending_period = pending_count == n_orders and n_orders > 0
+rev_display = (t("pending_note") if all_pending_period
+              else f"{main_rev:,.0f} {main_cur}")
+
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    metric_card(f"{t('orders_n')} · {period} {t('days')}", f"{n_orders:,}",
+    metric_card(f"{t('orders_n')} · {period_label}", f"{n_orders:,}",
                 delta=d_orders, delta_up=up_orders)
 with c2:
-    metric_card(f"{t('revenue')} · {period} {t('days')}",
-                f"{main_rev:,.0f} {main_cur}",
-                delta=d_rev, delta_up=up_rev,
-                sub=other if other else None)
+    metric_card(f"{t('revenue')} · {period_label}",
+                rev_display,
+                delta=None if all_pending_period else d_rev,
+                delta_up=up_rev,
+                sub=None if all_pending_period else (other if other else None))
 with c3:
-    metric_card(t("avg_check"), f"{avg_check:,.2f} {main_cur}")
+    metric_card(t("avg_check"), f"{avg_check:,.2f} {main_cur}"
+                if not all_pending_period else "—")
 with c4:
     metric_card(t("orders_today"), f"{orders_today}",
                 sub=f"Pending: {pending_count} · PDT")
