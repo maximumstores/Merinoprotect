@@ -1,6 +1,8 @@
-streamlit
-plotly
-pandas
-psycopg2-binary
-python-dotenv
-requests
+streamlit==1.51.0
+starlette==0.47.2
+plotly==6.9.0
+pandas==2.3.3
+numpy==2.3.2
+psycopg2-binary==2.9.11
+python-dotenv==1.2.2
+requests==2.32.3
