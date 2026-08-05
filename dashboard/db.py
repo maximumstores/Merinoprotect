@@ -100,12 +100,13 @@ TRANSLATIONS = {
         "search_orders": "Пошук за ASIN / номером замовлення (можна декілька через кому)",
         "conversion_label": "Конверсія", "sessions_label": "сесій",
         "today_pending_hint": "точні дані Amazon з'являться завтра",
-        "nav_traffic": "Трафік", "traffic_title": "📈 Продажі та трафік",
+        "nav_traffic": "Трафік", "traffic_title": "Продажі та трафік",
         "traffic_chart_title": "Сесії та конверсія по днях",
         "traffic_by_sku": "Трафік за SKU", "no_traffic_data": "Немає даних — запусти 04_sales_traffic_loader.py",
         "sessions_total": "Сесії", "pageviews_label": "переглядів сторінок",
         "units_label": "одиниць", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Дані з sales_traffic · Amazon Sales & Traffic Report",
+        "download_csv": "⬇ Скачати CSV",
         "orders_n": "Замовлення", "revenue": "Виручка",
         "avg_check": "Середній чек", "orders_today": "Замовлень сьогодні",
         "by_utc": "за UTC", "chart_daily": "Замовлення та виручка по днях",
@@ -136,12 +137,13 @@ TRANSLATIONS = {
         "search_orders": "Поиск по ASIN / номеру заказа (можно несколько через запятую)",
         "conversion_label": "Конверсия", "sessions_label": "сессий",
         "today_pending_hint": "точные данные Amazon появятся завтра",
-        "nav_traffic": "Трафик", "traffic_title": "📈 Продажи и трафик",
+        "nav_traffic": "Трафик", "traffic_title": "Продажи и трафик",
         "traffic_chart_title": "Сессии и конверсия по дням",
         "traffic_by_sku": "Трафик по SKU", "no_traffic_data": "Нет данных — запусти 04_sales_traffic_loader.py",
         "sessions_total": "Сессии", "pageviews_label": "просмотров страниц",
         "units_label": "единиц", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Данные из sales_traffic · Amazon Sales & Traffic Report",
+        "download_csv": "⬇ Скачать CSV",
         "orders_n": "Заказы", "revenue": "Выручка",
         "avg_check": "Средний чек", "orders_today": "Заказов сегодня",
         "by_utc": "по UTC", "chart_daily": "Заказы и выручка по дням",
@@ -172,12 +174,13 @@ TRANSLATIONS = {
         "search_orders": "Search ASIN / order number (comma-separated for multiple)",
         "conversion_label": "Conversion", "sessions_label": "sessions",
         "today_pending_hint": "accurate Amazon data available tomorrow",
-        "nav_traffic": "Traffic", "traffic_title": "📈 Sales & Traffic",
+        "nav_traffic": "Traffic", "traffic_title": "Sales & Traffic",
         "traffic_chart_title": "Sessions & conversion by day",
         "traffic_by_sku": "Traffic by SKU", "no_traffic_data": "No data — run 04_sales_traffic_loader.py",
         "sessions_total": "Sessions", "pageviews_label": "page views",
         "units_label": "units", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Data from sales_traffic · Amazon Sales \u0026 Traffic Report",
+        "download_csv": "⬇ Download CSV",
         "orders_n": "Orders", "revenue": "Revenue",
         "avg_check": "Avg order value", "orders_today": "Orders today",
         "by_utc": "UTC", "chart_daily": "Orders & revenue by day",
@@ -342,7 +345,15 @@ li[role="option"], li[role="option"] * {{
     background-color: {th["card"]} !important;
     color: {th["text"]} !important;
 }}
-li[role="option"]:hover {{ background-color: {th["border"]} !important; }}
+li[role="option"]:hover,
+li[role="option"][aria-selected="true"] {{
+    background-color: {ACCENT} !important;
+    color: #ffffff !important;
+}}
+li[role="option"]:hover *,
+li[role="option"][aria-selected="true"] * {{
+    color: #ffffff !important;
+}}
 
 [data-testid="stTextInput"] input {{
     background-color: {th["card"]} !important;
@@ -448,6 +459,16 @@ def cell_link(url, text) -> str:
     if not url or not text:
         return str(text or "")
     return f'<a href="{url}" target="_blank">{text}</a>'
+
+
+def download_csv_button(df: pd.DataFrame, filename: str, key: str):
+    """Кнопка 'Скачати CSV' під таблицею — заміна нативної кнопки
+    st.dataframe, якої немає у кастомних HTML-таблицях."""
+    csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        label=t("download_csv"), data=csv_bytes, file_name=f"{filename}.csv",
+        mime="text/csv", key=f"dl_{key}", use_container_width=False,
+    )
 
 
 def render_html_table(rows, columns, height=420):
