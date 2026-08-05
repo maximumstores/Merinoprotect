@@ -30,12 +30,23 @@ fc1, fc2, _ = st.columns([2, 2, 6])
 with fc1:
     mp_sel = st.selectbox(t("marketplace"), mp_options, format_func=mp_label, key="mp")
 with fc2:
-    period = st.selectbox(t("period"), [7, 14, 30], index=1,
-                          format_func=lambda d: f"{d} {t('days')}", key="period")
+    period = st.selectbox(t("period"), [1, 7, 14, 30], index=2,
+                          format_func=lambda d: t("today_option") if d == 1
+                          else f"{d} {t('days')}", key="period")
+
+is_today_mode = period == 1
 
 now_utc = datetime.now(timezone.utc)
-date_from = (now_utc - timedelta(days=period)).strftime("%Y-%m-%d")
-prev_from = (now_utc - timedelta(days=period * 2)).strftime("%Y-%m-%d")
+
+if is_today_mode:
+    # "Сьогодні" = календарний день по PDT (як у Amazon Seller Central),
+    # а не проста ковзна доба назад.
+    pacific_today = datetime.now(PACIFIC).date()
+    date_from = pacific_today.strftime("%Y-%m-%d")
+    prev_from = (pacific_today - timedelta(days=1)).strftime("%Y-%m-%d")
+else:
+    date_from = (now_utc - timedelta(days=period)).strftime("%Y-%m-%d")
+    prev_from = (now_utc - timedelta(days=period * 2)).strftime("%Y-%m-%d")
 
 mp_where = "" if mp_sel == "All" else "AND marketplace_id = %s"
 mp_params: tuple = () if mp_sel == "All" else (mp_sel,)
@@ -55,12 +66,19 @@ if orders_2p.empty:
 
 orders_2p["purchase_date"] = pd.to_datetime(orders_2p["purchase_date"], utc=True)
 orders_2p["day"] = orders_2p["purchase_date"].dt.date
+orders_2p["day_pdt"] = orders_2p["purchase_date"].dt.tz_convert(PACIFIC).dt.date
 orders_2p["order_total_amount"] = pd.to_numeric(
     orders_2p["order_total_amount"], errors="coerce").fillna(0)
 
-cutoff = (now_utc - timedelta(days=period)).date()
-orders = orders_2p[orders_2p["day"] >= cutoff].copy()
-orders_prev = orders_2p[orders_2p["day"] < cutoff]
+if is_today_mode:
+    cutoff_col = "day_pdt"
+    cutoff = pacific_today
+else:
+    cutoff_col = "day"
+    cutoff = (now_utc - timedelta(days=period)).date()
+
+orders = orders_2p[orders_2p[cutoff_col] >= cutoff].copy()
+orders_prev = orders_2p[orders_2p[cutoff_col] < cutoff]
 
 if orders.empty:
     st.info(t("no_orders"))
@@ -70,7 +88,10 @@ n_orders = len(orders)
 n_prev = len(orders_prev)
 
 earliest_date = orders_2p["day"].min()
-enough_history = earliest_date <= (now_utc - timedelta(days=period * 2 - 1)).date()
+if is_today_mode:
+    enough_history = earliest_date <= (pacific_today - timedelta(days=1))
+else:
+    enough_history = earliest_date <= (now_utc - timedelta(days=period * 2 - 1)).date()
 
 rev_by_cur = (orders.groupby("order_total_currency")["order_total_amount"]
               .sum().sort_values(ascending=False))
