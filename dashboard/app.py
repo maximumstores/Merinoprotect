@@ -178,57 +178,6 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-top_sku = q(f"""
-    SELECT oi.seller_sku, oi.asin, SUM(oi.quantity_ordered) AS qty
-    FROM merinoprotect.order_items oi
-    JOIN merinoprotect.orders o USING (amazon_order_id)
-    WHERE o.purchase_date >= %s::date
-      AND o.order_status <> 'Canceled'
-      {mp_where.replace('marketplace_id', 'o.marketplace_id')}
-    GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 10
-""", (date_from, *mp_params))
-
-if not top_sku.empty:
-    top_sku_sorted = top_sku.sort_values("qty")
-    f2 = go.Figure(go.Bar(
-        x=top_sku_sorted["qty"], y=top_sku_sorted["seller_sku"], orientation="h",
-        marker_color=ACCENT, text=top_sku_sorted["qty"], textposition="outside",
-    ))
-    f2.update_layout(**plotly_layout(title=t("top10_sku")))
-    st.plotly_chart(f2, use_container_width=True)
-
-    asins = tuple(top_sku["asin"].dropna().unique())
-    if asins:
-        photos = q("""
-            SELECT DISTINCT ON (asin) asin, marketplace_id, image_url
-            FROM merinoprotect.catalog_images
-            WHERE asin IN %s
-        """, (asins,))
-    else:
-        photos = pd.DataFrame(columns=["asin", "marketplace_id", "image_url"])
-
-    top_tbl = top_sku.merge(photos, on="asin", how="left")
-    top_tbl["asin_link"] = (
-        "https://" + top_tbl["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
-        + "/dp/" + top_tbl["asin"].fillna("")
-    )
-
-    st.caption(t("sort_hint"))
-    sort_col, sort_asc = sort_controls(
-        {"SKU": "seller_sku", "ASIN": "asin", t("col_qty"): "qty"},
-        key="topsku", default_index=2, default_desc=True,
-    )
-    top_tbl = top_tbl.sort_values(sort_col, ascending=sort_asc)
-
-    rows = top_tbl.to_dict("records")
-    columns = [
-        ("", lambda r: cell_photo(r.get("image_url"))),
-        ("SKU", lambda r: r.get("seller_sku") or ""),
-        ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
-        (t("col_qty"), lambda r: str(int(r.get("qty", 0)))),
-    ]
-    render_html_table(rows, columns, height=280)
-
 st.markdown("")
 st.markdown(f"**{t('last20')}**")
 
