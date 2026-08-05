@@ -170,12 +170,37 @@ period_label = t("today_option") if is_today_mode else f"{period} {t('days')}"
 # з Sales & Traffic Report — якщо вони є, довіряємо їм навіть за Pending
 all_pending_period = (pending_count == n_orders and n_orders > 0
                       and not use_accurate_revenue)
+
+# Коли точних даних Amazon ще немає (звіт з'явиться завтра), рахуємо
+# наближену оцінку по цінах ПОЗИЦІЙ замовлення (item_price) — Amazon
+# зазвичай віддає її навіть для Pending-замовлень, на відміну від
+# сумарного OrderTotal на рівні замовлення, який часто відсутній.
+estimated_rev = None
+estimated_cur = None
+if all_pending_period:
+    order_ids_today = tuple(orders["amazon_order_id"].tolist())
+    if order_ids_today:
+        est = q("""
+            SELECT item_price_currency, SUM(item_price_amount * quantity_ordered) AS est_sum
+            FROM merinoprotect.order_items
+            WHERE amazon_order_id IN %s
+            GROUP BY item_price_currency
+            ORDER BY est_sum DESC
+        """, (order_ids_today,))
+        est = est[est["item_price_currency"].notna()]
+        if not est.empty:
+            estimated_cur = est.iloc[0]["item_price_currency"]
+            estimated_rev = est.iloc[0]["est_sum"]
+
 rev_display = (t("pending_note") if all_pending_period
               else f"{main_rev:,.0f} {main_cur}")
 
 rev_sub = None
 if all_pending_period:
-    rev_sub = t("today_pending_hint") if is_today_mode else None
+    if estimated_rev is not None:
+        rev_sub = f"{t('estimate_label')}: ~{estimated_rev:,.0f} {estimated_cur}"
+    elif is_today_mode:
+        rev_sub = t("today_pending_hint")
 elif use_accurate_revenue and conversion_pct is not None:
     rev_sub = f"{t('conversion_label')}: {conversion_pct:.1f}% · {sessions_total:,} {t('sessions_label')}"
     if other:
