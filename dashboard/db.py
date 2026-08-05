@@ -68,15 +68,19 @@ def plotly_layout(title: str | None = None) -> dict:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color=th["chart_font"], size=12),
-        margin=dict(l=10, r=10, t=36, b=10),
+        margin=dict(l=10, r=10, t=44, b=36),
         height=340,
         xaxis=dict(showgrid=False, color=th["chart_font"]),
         yaxis=dict(gridcolor=th["grid"], color=th["chart_font"]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0,
+        legend=dict(orientation="h", yanchor="top", y=-0.15, x=0,
                     font=dict(color=th["chart_font"])),
     )
     if title:
-        layout["title"] = dict(text=title, font=dict(color=th["chart_font"], size=15))
+        layout["title"] = dict(
+            text=title, x=0.01, xanchor="left",
+            font=dict(color=th["chart_font"], size=15),
+            pad=dict(b=14),
+        )
     return layout
 
 
@@ -88,6 +92,7 @@ TRANSLATIONS = {
         "overview_title": "Merinoprotect — Огляд",
         "stock_title": "Залишки FBA",
         "marketplace": "Маркетплейс", "period": "Період", "days": "днів",
+        "today_option": "Сьогодні",
         "orders_n": "Замовлення", "revenue": "Виручка",
         "avg_check": "Середній чек", "orders_today": "Замовлень сьогодні",
         "by_utc": "за UTC", "chart_daily": "Замовлення та виручка по днях",
@@ -96,7 +101,7 @@ TRANSLATIONS = {
         "col_order": "Замовлення", "col_date": "Дата", "col_status": "Статус",
         "col_market": "Маркет", "col_sum": "Сума",
         "no_orders": "Немає замовлень за обраний період.",
-        "search": "Пошук за SKU / назвою", "sku_in_stock": "SKU із залишком > 0",
+        "search": "Пошук за SKU / ASIN / назвою (можна декілька через кому)", "sku_in_stock": "SKU із залишком > 0",
         "total_rows": "всього рядків", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Топ-15 SKU за fulfillable", "stock_by_sku": "Залишки за SKU",
         "snapshot": "знімок", "col_name": "Назва", "col_photo": "Фото",
@@ -112,6 +117,7 @@ TRANSLATIONS = {
         "overview_title": "Merinoprotect — Обзор",
         "stock_title": "Остатки FBA",
         "marketplace": "Маркетплейс", "period": "Период", "days": "дней",
+        "today_option": "Сегодня",
         "orders_n": "Заказы", "revenue": "Выручка",
         "avg_check": "Средний чек", "orders_today": "Заказов сегодня",
         "by_utc": "по UTC", "chart_daily": "Заказы и выручка по дням",
@@ -120,7 +126,7 @@ TRANSLATIONS = {
         "col_order": "Заказ", "col_date": "Дата", "col_status": "Статус",
         "col_market": "Маркет", "col_sum": "Сумма",
         "no_orders": "Нет заказов за выбранный период.",
-        "search": "Поиск по SKU / названию", "sku_in_stock": "SKU с остатком > 0",
+        "search": "Поиск по SKU / ASIN / названию (можно несколько через запятую)", "sku_in_stock": "SKU с остатком > 0",
         "total_rows": "всего строк", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Топ-15 SKU по fulfillable", "stock_by_sku": "Остатки по SKU",
         "snapshot": "снапшот", "col_name": "Название", "col_photo": "Фото",
@@ -136,6 +142,7 @@ TRANSLATIONS = {
         "overview_title": "Merinoprotect — Overview",
         "stock_title": "FBA Stock",
         "marketplace": "Marketplace", "period": "Period", "days": "days",
+        "today_option": "Today",
         "orders_n": "Orders", "revenue": "Revenue",
         "avg_check": "Avg order value", "orders_today": "Orders today",
         "by_utc": "UTC", "chart_daily": "Orders & revenue by day",
@@ -144,7 +151,7 @@ TRANSLATIONS = {
         "col_order": "Order", "col_date": "Date", "col_status": "Status",
         "col_market": "Market", "col_sum": "Total",
         "no_orders": "No orders for selected period.",
-        "search": "Search SKU / name", "sku_in_stock": "SKUs in stock > 0",
+        "search": "Search SKU / ASIN / name (comma-separated for multiple)", "sku_in_stock": "SKUs in stock > 0",
         "total_rows": "total rows", "inbound_sub": "working + shipped + receiving",
         "top15_sku": "Top-15 SKU by fulfillable", "stock_by_sku": "Stock by SKU",
         "snapshot": "snapshot", "col_name": "Product name", "col_photo": "Photo",
