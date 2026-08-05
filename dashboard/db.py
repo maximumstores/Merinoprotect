@@ -192,7 +192,6 @@ def lang_selector() -> str:
                 f'style="max-width: 175px; width: 100%;" /></div>',
                 unsafe_allow_html=True,
             )
-        # тонкі лінійні іконки (Material Symbols), не емодзі
         st.page_link("app.py", label=t("nav_overview"), icon=":material/bar_chart:")
         st.page_link("pages/1_Stock.py", label=t("nav_stock"), icon=":material/inventory_2:")
         st.markdown("---")
