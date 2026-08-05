@@ -4,6 +4,7 @@
 import os
 import sys
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -83,9 +84,17 @@ df = df_all.copy()
 if mp_sel != "All":
     df = df[df["marketplace_id"] == mp_sel]
 if search.strip():
-    s = search.strip().lower()
-    df = df[df["seller_sku"].str.lower().str.contains(s, na=False)
-            | df["product_name"].str.lower().str.contains(s, na=False)]
+    import re
+    # дозволяємо вставити одразу декілька ASIN/SKU через кому, пробіл або з нового рядка
+    tokens = [tok.lower() for tok in re.split(r"[,\s;]+", search.strip()) if tok]
+    mask = pd.Series(False, index=df.index)
+    for tok in tokens:
+        mask |= (
+            df["seller_sku"].str.lower().str.contains(tok, na=False)
+            | df["product_name"].str.lower().str.contains(tok, na=False)
+            | df["asin"].str.lower().str.contains(tok, na=False)
+        )
+    df = df[mask]
 
 df["asin_link"] = ("https://" + df["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
                    + "/dp/" + df["asin"].fillna(""))
