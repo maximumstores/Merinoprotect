@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Merinoprotect Dashboard — Sales & Traffic (сесії, конверсія, Buy Box %)."""
+"""Merinnovation Dashboard — Sales & Traffic (сесії, конверсія, Buy Box %)."""
 
 import os
 import sys
@@ -14,14 +14,14 @@ from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 download_csv_button, inject_css, lang_selector, metric_card,
                 mp_label, plotly_layout, q, render_html_table, sort_controls, t)
 
-st.set_page_config(layout="wide", page_title="Merinoprotect · Traffic", page_icon="🐑")
+st.set_page_config(layout="wide", page_title="Merinnovation · Traffic", page_icon="🐑")
 lang_selector()
 inject_css()
 
 st.markdown(f"## {t('traffic_title')}")
 
 # ------------------------------------------------------------ фільтри ----
-mps = q("SELECT DISTINCT marketplace_id FROM merinoprotect.sales_traffic_daily ORDER BY 1")
+mps = q("SELECT DISTINCT marketplace_id FROM merinnovation.sales_traffic_daily ORDER BY 1")
 if mps.empty:
     st.info(t("no_traffic_data"))
     st.stop()
@@ -47,7 +47,7 @@ daily = q(f"""
     SELECT report_date, marketplace_id, ordered_product_sales,
            ordered_product_sales_currency, units_ordered, sessions, page_views,
            buy_box_percentage, unit_session_percentage
-    FROM merinoprotect.sales_traffic_daily
+    FROM merinnovation.sales_traffic_daily
     WHERE {date_condition}
       {mp_where}
     ORDER BY report_date
@@ -121,11 +121,11 @@ by_sku = q(f"""
            s.units_ordered, s.sessions, s.page_views,
            s.buy_box_percentage, s.unit_session_percentage,
            c.image_url
-    FROM merinoprotect.sales_traffic_by_sku s
-    LEFT JOIN merinoprotect.catalog_images c
+    FROM merinnovation.sales_traffic_by_sku s
+    LEFT JOIN merinnovation.catalog_images c
       ON c.asin = s.asin AND c.marketplace_id = s.marketplace_id
     WHERE s.report_date = (
-        SELECT MAX(report_date) FROM merinoprotect.sales_traffic_by_sku
+        SELECT MAX(report_date) FROM merinnovation.sales_traffic_by_sku
         WHERE 1=1 {mp_where}
     )
     {mp_where}
