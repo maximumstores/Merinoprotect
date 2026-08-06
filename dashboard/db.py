@@ -108,6 +108,14 @@ TRANSLATIONS = {
         "units_label": "одиниць", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Дані з sales_traffic · Amazon Sales & Traffic Report",
         "download_csv": "⬇ Скачати CSV",
+        "nav_finance": "Фінанси", "finance_title": "Фінанси",
+        "no_finance_data": "Немає даних — запусти 06_finance_loader.py",
+        "gross_label": "Валова виручка", "promo_label": "Промо",
+        "fees_label": "Збори Amazon", "commission_label": "Комісія",
+        "refunds_label": "Повернення", "refund_items_label": "позицій",
+        "net_label": "Чистими", "finance_chart_title": "Виручка та комісії по днях",
+        "finance_by_sku": "Економіка за SKU",
+        "finance_cache_note": "Дані з finance_shipment_items · Financial Events API",
         "orders_n": "Замовлення", "revenue": "Виручка",
         "avg_check": "Середній чек", "orders_today": "Замовлень сьогодні",
         "by_utc": "за UTC", "chart_daily": "Замовлення та виручка по днях",
@@ -146,6 +154,14 @@ TRANSLATIONS = {
         "units_label": "единиц", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Данные из sales_traffic · Amazon Sales & Traffic Report",
         "download_csv": "⬇ Скачать CSV",
+        "nav_finance": "Финансы", "finance_title": "Финансы",
+        "no_finance_data": "Нет данных — запусти 06_finance_loader.py",
+        "gross_label": "Валовая выручка", "promo_label": "Промо",
+        "fees_label": "Сборы Amazon", "commission_label": "Комиссия",
+        "refunds_label": "Возвраты", "refund_items_label": "позиций",
+        "net_label": "Чистыми", "finance_chart_title": "Выручка и комиссии по дням",
+        "finance_by_sku": "Экономика по SKU",
+        "finance_cache_note": "Данные из finance_shipment_items · Financial Events API",
         "orders_n": "Заказы", "revenue": "Выручка",
         "avg_check": "Средний чек", "orders_today": "Заказов сегодня",
         "by_utc": "по UTC", "chart_daily": "Заказы и выручка по дням",
@@ -184,6 +200,14 @@ TRANSLATIONS = {
         "units_label": "units", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Data from sales_traffic · Amazon Sales \u0026 Traffic Report",
         "download_csv": "⬇ Download CSV",
+        "nav_finance": "Finance", "finance_title": "Finance",
+        "no_finance_data": "No data — run 06_finance_loader.py",
+        "gross_label": "Gross revenue", "promo_label": "Promo",
+        "fees_label": "Amazon fees", "commission_label": "Commission",
+        "refunds_label": "Refunds", "refund_items_label": "items",
+        "net_label": "Net", "finance_chart_title": "Revenue & fees by day",
+        "finance_by_sku": "Economics by SKU",
+        "finance_cache_note": "Data from finance_shipment_items · Financial Events API",
         "orders_n": "Orders", "revenue": "Revenue",
         "avg_check": "Avg order value", "orders_today": "Orders today",
         "by_utc": "UTC", "chart_daily": "Orders & revenue by day",
@@ -246,6 +270,7 @@ def lang_selector() -> str:
         st.page_link("app.py", label=t("nav_overview"), icon=":material/bar_chart:")
         st.page_link("pages/1_Stock.py", label=t("nav_stock"), icon=":material/inventory_2:")
         st.page_link("pages/2_Traffic.py", label=t("nav_traffic"), icon=":material/trending_up:")
+        st.page_link("pages/3_Finance.py", label=t("nav_finance"), icon=":material/payments:")
         st.markdown("---")
 
         cols = st.columns(3)
