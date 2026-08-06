@@ -123,13 +123,41 @@ by_sku = (ship_m.groupby("seller_sku")
 by_sku["net"] = (by_sku["principal"] + by_sku["promo"] + by_sku["fba_fee"]
                 + by_sku["commission"] + by_sku["other"])
 
+# ASIN + фото: SKU→ASIN мапимо через order_items (там завжди є пара),
+# фото — з catalog_images по ASIN
+skus = tuple(by_sku["seller_sku"].dropna().unique())
+if skus:
+    sku_map = q("""
+        SELECT DISTINCT ON (oi.seller_sku)
+               oi.seller_sku, oi.asin, o.marketplace_id, c.image_url
+        FROM merinoprotect.order_items oi
+        JOIN merinoprotect.orders o USING (amazon_order_id)
+        LEFT JOIN merinoprotect.catalog_images c
+          ON c.asin = oi.asin AND c.marketplace_id = o.marketplace_id
+        WHERE oi.seller_sku IN %s
+        ORDER BY oi.seller_sku, c.image_url NULLS LAST
+    """, (skus,))
+    by_sku = by_sku.merge(sku_map, on="seller_sku", how="left")
+else:
+    by_sku["asin"] = None
+    by_sku["marketplace_id"] = None
+    by_sku["image_url"] = None
+
+by_sku["asin_link"] = (
+    "https://" + by_sku["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
+    + "/dp/" + by_sku["asin"].fillna("")
+)
+
 search = st.text_input(t("search"), "", key="fin_search")
 if search.strip():
     import re
     tokens = [tok.lower() for tok in re.split(r"[,\s;]+", search.strip()) if tok]
     mask = pd.Series(False, index=by_sku.index)
     for tok in tokens:
-        mask |= by_sku["seller_sku"].str.lower().str.contains(tok, na=False)
+        mask |= (
+            by_sku["seller_sku"].str.lower().str.contains(tok, na=False)
+            | by_sku["asin"].str.lower().str.contains(tok, na=False)
+        )
     by_sku = by_sku[mask]
 
 st.caption(t("sort_hint"))
@@ -142,7 +170,9 @@ by_sku = by_sku.sort_values(sort_col, ascending=sort_asc)
 
 rows = by_sku.to_dict("records")
 columns = [
+    ("", lambda r: cell_photo(r.get("image_url"))),
     ("SKU", lambda r: r.get("seller_sku") or ""),
+    ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
     ("Qty", lambda r: str(int(r.get("qty", 0)))),
     (t("gross_label"), lambda r: f"{r.get('principal', 0):,.2f}"),
     (t("promo_label"), lambda r: f"{r.get('promo', 0):,.2f}"),
@@ -151,6 +181,10 @@ columns = [
     (t("net_label"), lambda r: f"{r.get('net', 0):,.2f}"),
 ]
 render_html_table(rows, columns, height=520)
-download_csv_button(by_sku, "finance_by_sku", key="finance")
+download_csv_button(
+    by_sku[["seller_sku", "asin", "qty", "principal", "promo",
+           "fba_fee", "commission", "net"]],
+    "finance_by_sku", key="finance",
+)
 
 st.caption(f"{t('finance_cache_note')} · {main_cur}")
