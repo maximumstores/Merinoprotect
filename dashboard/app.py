@@ -361,4 +361,4 @@ download_csv_button(
     "last20_orders", key="last20",
 )
 
-st.caption(t("cache_note")) 
+st.caption(t("cache_note"))
