@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Merinoprotect Dashboard — Фінанси (реальні гроші: комісії, збори, повернення)."""
+"""Merinnovation Dashboard — Фінанси (реальні гроші: комісії, збори, повернення)."""
 
 import os
 import sys
@@ -14,7 +14,7 @@ from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 download_csv_button, inject_css, lang_selector, metric_card,
                 mp_label, plotly_layout, q, render_html_table, sort_controls, t)
 
-st.set_page_config(layout="wide", page_title="Merinoprotect · Finance", page_icon="🐑")
+st.set_page_config(layout="wide", page_title="Merinnovation · Finance", page_icon="🐑")
 lang_selector()
 inject_css()
 
@@ -32,14 +32,14 @@ ship = q(f"""
     SELECT amazon_order_id, marketplace_name, posted_date, seller_sku,
            quantity_shipped, principal, shipping_charge, promotion_discount,
            fba_fulfillment_fee, commission, other_fees, currency
-    FROM merinoprotect.finance_shipment_items
+    FROM merinnovation.finance_shipment_items
     WHERE posted_date >= (NOW() - INTERVAL '{period} days')
 """)
 
 refunds = q(f"""
     SELECT amazon_order_id, posted_date, seller_sku, quantity,
            refund_principal, refund_commission, refund_other, currency
-    FROM merinoprotect.finance_refunds
+    FROM merinnovation.finance_refunds
     WHERE posted_date >= (NOW() - INTERVAL '{period} days')
 """)
 
@@ -130,9 +130,9 @@ if skus:
     sku_map = q("""
         SELECT DISTINCT ON (oi.seller_sku)
                oi.seller_sku, oi.asin, o.marketplace_id, c.image_url
-        FROM merinoprotect.order_items oi
-        JOIN merinoprotect.orders o USING (amazon_order_id)
-        LEFT JOIN merinoprotect.catalog_images c
+        FROM merinnovation.order_items oi
+        JOIN merinnovation.orders o USING (amazon_order_id)
+        LEFT JOIN merinnovation.catalog_images c
           ON c.asin = oi.asin AND c.marketplace_id = o.marketplace_id
         WHERE oi.seller_sku IN %s
         ORDER BY oi.seller_sku, c.image_url NULLS LAST
@@ -187,4 +187,4 @@ download_csv_button(
     "finance_by_sku", key="finance",
 )
 
-st.caption(f"{t('finance_cache_note')} · {main_cur}")
+st.caption(f"{t('finance_cache_note')} · {main_cur}") 
