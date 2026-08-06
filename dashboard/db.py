@@ -91,7 +91,7 @@ def plotly_layout(title: str | None = None) -> dict:
 TRANSLATIONS = {
     "uk": {
         "nav_overview": "Огляд", "nav_stock": "Залишки",
-        "overview_title": "Merinoprotect — Огляд",
+        "overview_title": "M — Огляд",
         "stock_title": "Залишки FBA",
         "marketplace": "Маркетплейс", "period": "Період", "days": "днів",
         "today_option": "Сьогодні",
@@ -137,7 +137,7 @@ TRANSLATIONS = {
     },
     "ru": {
         "nav_overview": "Обзор", "nav_stock": "Остатки",
-        "overview_title": "Merinoprotect — Обзор",
+        "overview_title": "Merinnovation  — Обзор",
         "stock_title": "Остатки FBA",
         "marketplace": "Маркетплейс", "period": "Период", "days": "дней",
         "today_option": "Сегодня",
