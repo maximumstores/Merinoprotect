@@ -187,4 +187,4 @@ download_csv_button(
     "finance_by_sku", key="finance",
 )
 
-st.caption(f"{t('finance_cache_note')} · {main_cur}")
+st.caption(f"{t('finance_cache_note')} · {main_cur}") 
