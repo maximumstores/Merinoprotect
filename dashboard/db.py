@@ -131,7 +131,7 @@ TRANSLATIONS = {
         "col_qty": "Кількість",
         "no_inventory": "Немає даних у fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
-        "cache_note": "Дані з merinoprotect · кеш 10 хв",
+        "cache_note": "Дані з Merinnovation · кеш 10 хв",
         "sort_by": "Сортувати за", "sort_asc": "За зростанням", "sort_desc": "За спаданням",
         "sort_order_label": "Порядок",
     },
@@ -177,7 +177,7 @@ TRANSLATIONS = {
         "col_qty": "Кол-во",
         "no_inventory": "Нет данных в fba_inventory — запусти 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
-        "cache_note": "Данные из merinoprotect · кэш 10 мин",
+        "cache_note": "Данные из Merinnovation · кэш 10 мин",
         "sort_by": "Сортировать по", "sort_asc": "По возрастанию", "sort_desc": "По убыванию",
         "sort_order_label": "Порядок",
     },
@@ -223,7 +223,7 @@ TRANSLATIONS = {
         "col_qty": "Qty",
         "no_inventory": "No data in fba_inventory — run 02_fba_inventory_loader.py",
         "legend_stock": "🔴 fulfillable = 0 · 🟡 fulfillable < 20",
-        "cache_note": "Data from merinoprotect · cache 10 min",
+        "cache_note": "Data from Merinnovation · cache 10 min",
         "sort_by": "Sort by", "sort_asc": "Ascending", "sort_desc": "Descending",
         "sort_order_label": "Order",
     },
@@ -529,4 +529,4 @@ def sort_controls(options: dict, key: str, default_index: int = 0,
                              index=0 if default_desc else 1,
                              key=f"sort_ord_{key}")
     ascending = order == t("sort_asc")
-    return options[sel], ascending 
+    return options[sel], ascending
