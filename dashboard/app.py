@@ -18,7 +18,7 @@ from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 metric_card, mp_label, plotly_layout, q, render_html_table,
                 sort_controls, t)
 
-st.set_page_config(layout="wide", page_title="Merinoprotect", page_icon="🐑")
+st.set_page_config(layout="wide", page_title="Merinnovation", page_icon="🐑")
 lang_selector()
 inject_css()
 
