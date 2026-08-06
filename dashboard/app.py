@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Merinoprotect Dashboard — Огляд / Overview."""
+"""Merinnovation Dashboard — Огляд / Overview."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -361,4 +361,4 @@ download_csv_button(
     "last20_orders", key="last20",
 )
 
-st.caption(t("cache_note"))
+st.caption(t("cache_note")) 
