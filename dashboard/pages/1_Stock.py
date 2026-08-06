@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Merinnovation Dashboard — Залишки FBA / Stock."""
+"""Merinoprotect Dashboard — Залишки FBA / Stock."""
 
 import os
 import sys
@@ -15,14 +15,14 @@ from db import (ACCENT, AMAZON_DOMAINS, cell_link, cell_photo,
                 lang_selector, metric_card, mp_label, plotly_layout, q,
                 render_html_table, sort_controls, t)
 
-st.set_page_config(layout="wide", page_title="Merinnovation · Stock",
+st.set_page_config(layout="wide", page_title="Merinoprotect · Stock",
                    page_icon="🐑")
 lang_selector()
 inject_css()
 
 st.markdown(f"## {t('stock_title')}")
 
-snap = q("SELECT MAX(snapshot_date) AS d FROM merinnovation.fba_inventory")
+snap = q("SELECT MAX(snapshot_date) AS d FROM merinoprotect.fba_inventory")
 if snap.empty or snap["d"].isna().all():
     st.info(t("no_inventory"))
     st.stop()
@@ -36,8 +36,8 @@ inv = q("""
              + COALESCE(f.inbound_receiving_quantity,0) AS inbound_total,
            f.reserved_total, f.unfulfillable_total, f.total_quantity,
            c.image_url
-    FROM merinnovation.fba_inventory f
-    LEFT JOIN merinnovation.catalog_images c
+    FROM merinoprotect.fba_inventory f
+    LEFT JOIN merinoprotect.catalog_images c
       ON c.marketplace_id = f.marketplace_id AND c.asin = f.asin
     WHERE f.snapshot_date = %s
 """, (snapshot_date,))
