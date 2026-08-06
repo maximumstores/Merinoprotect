@@ -24,7 +24,7 @@ inject_css()
 
 st.markdown(f"## {t('overview_title')}")
 
-mps = q("SELECT DISTINCT marketplace_id FROM merinoprotect.orders ORDER BY 1")
+mps = q("SELECT DISTINCT marketplace_id FROM merinnovation.orders ORDER BY 1")
 mp_options = ["All"] + mps["marketplace_id"].dropna().tolist()
 
 fc1, fc2, _ = st.columns([2, 2, 6])
@@ -46,7 +46,7 @@ mp_params: tuple = () if mp_sel == "All" else (mp_sel,)
 orders_2p = q(f"""
     SELECT amazon_order_id, purchase_date, order_status, marketplace_id,
            order_total_amount, order_total_currency
-    FROM merinoprotect.orders
+    FROM merinnovation.orders
     WHERE purchase_date >= %s::date
       AND order_status <> 'Canceled'
       {mp_where}
@@ -104,7 +104,7 @@ st_mp_params = () if mp_sel == "All" else (mp_sel,)
 st_daily = q(f"""
     SELECT report_date, ordered_product_sales, ordered_product_sales_currency,
            units_ordered, sessions, page_views
-    FROM merinoprotect.sales_traffic_daily
+    FROM merinnovation.sales_traffic_daily
     WHERE report_date >= %s AND report_date <= %s
       {st_mp_where}
 """, (date_from, now_utc.strftime("%Y-%m-%d"), *st_mp_params))
@@ -163,7 +163,7 @@ if all_pending_period:
     if order_ids_today:
         est = q("""
             SELECT item_price_currency, SUM(item_price_amount * quantity_ordered) AS est_sum
-            FROM merinoprotect.order_items
+            FROM merinnovation.order_items
             WHERE amazon_order_id IN %s
             GROUP BY item_price_currency
             ORDER BY est_sum DESC
@@ -238,8 +238,8 @@ st.plotly_chart(fig, use_container_width=True)
 
 top_sku = q(f"""
     SELECT oi.seller_sku, oi.asin, SUM(oi.quantity_ordered) AS qty
-    FROM merinoprotect.order_items oi
-    JOIN merinoprotect.orders o USING (amazon_order_id)
+    FROM merinnovation.order_items oi
+    JOIN merinnovation.orders o USING (amazon_order_id)
     WHERE o.purchase_date >= %s::date
       AND o.order_status <> 'Canceled'
       {mp_where.replace('marketplace_id', 'o.marketplace_id')}
@@ -259,7 +259,7 @@ if not top_sku.empty:
     if asins:
         photos = q("""
             SELECT DISTINCT ON (asin) asin, marketplace_id, image_url
-            FROM merinoprotect.catalog_images
+            FROM merinnovation.catalog_images
             WHERE asin IN %s
         """, (asins,))
     else:
@@ -300,9 +300,9 @@ if order_ids:
     items_info = q("""
         SELECT DISTINCT ON (oi.amazon_order_id)
                oi.amazon_order_id, oi.asin, c.image_url
-        FROM merinoprotect.order_items oi
-        LEFT JOIN merinoprotect.orders o USING (amazon_order_id)
-        LEFT JOIN merinoprotect.catalog_images c
+        FROM merinnovation.order_items oi
+        LEFT JOIN merinnovation.orders o USING (amazon_order_id)
+        LEFT JOIN merinnovation.catalog_images c
           ON c.asin = oi.asin AND c.marketplace_id = o.marketplace_id
         WHERE oi.amazon_order_id IN %s
         ORDER BY oi.amazon_order_id, oi.order_item_id
