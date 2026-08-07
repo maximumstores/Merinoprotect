@@ -57,7 +57,8 @@ with fc1:
                           key="fc_mp")
 with fc2:
     status_options = ["All", "REORDER_NOW", "REORDER_SOON", "OUT_OF_STOCK",
-                      "OVERSTOCK", "OK", "NO_SALES"]
+                      "LIMITED_HISTORY", "INCOMING_NO_SALES", "OVERSTOCK",
+                      "OK", "NO_SALES", "NO_SALES_NO_STOCK"]
     status_sel = st.selectbox(t("status_filter"), status_options, key="fc_status")
 
 df = fc.copy()
@@ -146,6 +147,7 @@ STATUS_ROW_CLASS = {
     "OUT_OF_STOCK": "row-zero",
     "REORDER_NOW": "row-zero",
     "REORDER_SOON": "row-low",
+    "LIMITED_HISTORY": "row-low",
 }
 
 rows = []
