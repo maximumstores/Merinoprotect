@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 download_csv_button, inject_css, lang_selector, metric_card,
-                mp_label, plotly_layout, q, render_html_table, sort_controls, t)
+                mp_label, plotly_layout, q, render_html_table, sort_controls,
+                t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · Traffic", page_icon="🐑")
 lang_selector()
@@ -104,9 +105,9 @@ fig.add_scatter(x=by_date["report_date"].dt.strftime("%Y-%m-%d"), y=by_date["con
                line=dict(color=ACCENT2, width=2))
 
 layout_kwargs = plotly_layout(title=t("traffic_chart_title"))
-layout_kwargs["xaxis"] = dict(type="category", showgrid=False)
-layout_kwargs["yaxis2"] = dict(overlaying="y", side="right", showgrid=False,
-                               ticksuffix="%")
+layout_kwargs["xaxis"] = themed_axis(type="category", showgrid=False)
+layout_kwargs["yaxis2"] = themed_axis(overlaying="y", side="right",
+                                      showgrid=False, ticksuffix="%")
 fig.update_layout(**layout_kwargs)
 st.plotly_chart(fig, use_container_width=True)
 
