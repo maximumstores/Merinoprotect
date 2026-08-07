@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 download_csv_button, inject_css, lang_selector, metric_card,
-                mp_label, plotly_layout, q, render_html_table, sort_controls, t)
+                mp_label, plotly_layout, q, render_html_table, sort_controls,
+                t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · Finance", page_icon="🐑")
 lang_selector()
@@ -106,7 +107,7 @@ fig.add_scatter(x=daily["day"].astype(str), y=daily["fees_abs"],
                name=t("commission_label"), mode="lines+markers",
                line=dict(color=ACCENT2, width=2))
 layout_kwargs = plotly_layout(title=t("finance_chart_title"))
-layout_kwargs["xaxis"] = dict(type="category", showgrid=False)
+layout_kwargs["xaxis"] = themed_axis(type="category", showgrid=False)
 fig.update_layout(**layout_kwargs)
 st.plotly_chart(fig, use_container_width=True)
 
@@ -187,4 +188,4 @@ download_csv_button(
     "finance_by_sku", key="finance",
 )
 
-st.caption(f"{t('finance_cache_note')} · {main_cur}") 
+st.caption(f"{t('finance_cache_note')} · {main_cur}")
