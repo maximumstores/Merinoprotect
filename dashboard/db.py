@@ -57,6 +57,27 @@ def cur_theme() -> dict:
     return THEMES[st.session_state.get("theme", "dark")]
 
 
+def themed_axis(**extra) -> dict:
+    """Осі з кольорами поточної теми + твої перевизначення.
+
+    ВАЖЛИВО: якщо просто написати layout["xaxis"] = dict(type="category"),
+    воно ЗАТИРАЄ кольори з plotly_layout() — і підписи стають невидимими
+    на світлій темі. Цей хелпер зберігає кольори і додає потрібне зверху."""
+    th = cur_theme()
+    base = {
+        "color": th["chart_font"],
+        "tickfont": {"color": th["chart_font"]},
+        "title": {"font": {"color": th["chart_font"]}},
+    }
+    # title може прийти рядком — тоді загортаємо, щоб не втратити колір
+    if "title" in extra and isinstance(extra["title"], str):
+        extra = dict(extra)
+        extra["title"] = {"text": extra["title"],
+                          "font": {"color": th["chart_font"]}}
+    base.update(extra)
+    return base
+
+
 def plotly_layout(title: str | None = None) -> dict:
     """Базовий layout для plotly. Якщо передано title — колір title
     примусово прив'язується до теми (інакше на світлій темі текст
