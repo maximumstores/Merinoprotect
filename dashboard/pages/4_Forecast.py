@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
                 download_csv_button, inject_css, lang_selector, metric_card,
-                mp_label, plotly_layout, q, render_html_table, sort_controls, t)
+                mp_label, plotly_layout, q, render_html_table, sort_controls,
+                t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · Forecast",
                    page_icon="🐑")
@@ -100,8 +101,8 @@ if not risk.empty:
         text=counts.values.astype(int), textposition="outside",
     ))
     layout_kwargs = plotly_layout(title=t("cover_distribution"))
-    layout_kwargs["xaxis"] = dict(type="category", showgrid=False,
-                                  title=t("days_of_cover_axis"))
+    layout_kwargs["xaxis"] = themed_axis(type="category", showgrid=False,
+                                         title=t("days_of_cover_axis"))
     fig.update_layout(**layout_kwargs)
     st.plotly_chart(fig, use_container_width=True)
 
