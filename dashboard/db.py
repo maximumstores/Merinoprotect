@@ -154,6 +154,13 @@ TRANSLATIONS = {
 
 Підсумок рахується **лише по дозрілих датах** — інакше нулі свіжих днів занижували б загальний відсоток.
 """,
+        "nav_ai": "AI-аналітик", "ai_title": "Висновки ІІ-аналітика",
+        "no_ai_data": "Немає даних — запусти 10_ai_analyst.py",
+        "ai_report_date": "Дата звіту",
+        "ai_by_agent": "За напрямами",
+        "ai_model": "Модель",
+        "ai_history": "Історія головних сводок",
+        "ai_cache_note": "Дані з ai_insights · висновки формуються щодня",
         "nav_reviews": "Відгуки", "reviews_title": "Запити на відгуки",
         "no_reviews_data": "Немає даних — запусти 11_review_requests.py",
         "health_ok": "Розсилка працює — останній прогін у межах 25 год",
@@ -273,6 +280,13 @@ TRANSLATIONS = {
 
 Итог считается **только по дозревшим датам** — иначе нули свежих дней занижали бы общий процент.
 """,
+        "nav_ai": "AI-аналитик", "ai_title": "Выводы ИИ-аналитика",
+        "no_ai_data": "Нет данных — запусти 10_ai_analyst.py",
+        "ai_report_date": "Дата отчёта",
+        "ai_by_agent": "По направлениям",
+        "ai_model": "Модель",
+        "ai_history": "История главных сводок",
+        "ai_cache_note": "Данные из ai_insights · выводы формируются ежедневно",
         "nav_reviews": "Отзывы", "reviews_title": "Запросы на отзывы",
         "no_reviews_data": "Нет данных — запусти 11_review_requests.py",
         "health_ok": "Рассылка работает — последний прогон в пределах 25 ч",
@@ -392,6 +406,13 @@ TRANSLATIONS = {
 
 The total counts **matured dates only** — otherwise zeros from recent days would drag the overall percentage down.
 """,
+        "nav_ai": "AI analyst", "ai_title": "AI analyst findings",
+        "no_ai_data": "No data — run 10_ai_analyst.py",
+        "ai_report_date": "Report date",
+        "ai_by_agent": "By area",
+        "ai_model": "Model",
+        "ai_history": "Past summaries",
+        "ai_cache_note": "Data from ai_insights · generated daily",
         "nav_reviews": "Reviews", "reviews_title": "Review Requests",
         "no_reviews_data": "No data — run 11_review_requests.py",
         "health_ok": "Sending healthy — last run within 25h",
@@ -513,6 +534,7 @@ def lang_selector() -> str:
         st.page_link("pages/3_Finance.py", label=t("nav_finance"), icon=":material/payments:")
         st.page_link("pages/4_Forecast.py", label=t("nav_forecast"), icon=":material/insights:")
         st.page_link("pages/5_Reviews.py", label=t("nav_reviews"), icon=":material/star:")
+        st.page_link("pages/6_AI.py", label=t("nav_ai"), icon=":material/auto_awesome:")
         st.markdown("---")
 
         cols = st.columns(3)
