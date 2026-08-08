@@ -222,25 +222,16 @@ has_leaks = not leaks_exist.empty and int(leaks_exist["n"].iloc[0]) > 0
 
 if has_leaks:
     by_type = q("""
-        SELECT leak_type, COUNT(*) AS sku_count, SUM(amount_usd) AS usd
+        SELECT category, leak_type, COUNT(*) AS sku_count, SUM(amount_usd) AS usd
         FROM merinnovation.money_leaks
-        GROUP BY 1 ORDER BY 3 DESC
+        GROUP BY 1, 2 ORDER BY 4 DESC
     """)
 
     if not by_type.empty:
-        total_leak = float(by_type["usd"].sum())
-
-        st.markdown(
-            f'<div style="background:{th["card"]};'
-            f'border:1px solid #ef444455;border-left:4px solid #ef4444;'
-            f'border-radius:14px;padding:22px 26px;margin-bottom:18px;">'
-            f'<div style="color:{th["muted"]};font-size:12px;letter-spacing:.08em;'
-            f'text-transform:uppercase;margin-bottom:10px;">'
-            f'💸 {t("leaks_title")}</div>'
-            f'<div style="color:#ef4444;font-size:34px;font-weight:800;'
-            f'line-height:1.1;">${total_leak:,.0f}</div>'
-            f'<div style="color:{th["muted"]};font-size:13px;margin-top:6px;">'
-            f'{t("leaks_note")}</div></div>', unsafe_allow_html=True)
+        lost = by_type[by_type["category"] == "lost_revenue"]
+        frozen = by_type[by_type["category"] == "frozen_capital"]
+        total_lost = float(lost["usd"].sum()) if not lost.empty else 0.0
+        total_frozen = float(frozen["usd"].sum()) if not frozen.empty else 0.0
 
         LEAK_LABELS = {
             "STOCKOUT_NOW": t("leak_stockout_now"),
@@ -251,57 +242,94 @@ if has_leaks:
             "DEAD_STOCK": t("leak_dead_stock"),
         }
 
-        lc, rc = st.columns([1, 1])
-
-        with lc:
-            by_type["label"] = by_type["leak_type"].map(
-                lambda x: LEAK_LABELS.get(x, x))
-            b = by_type.sort_values("usd")
-            figl = go.Figure(go.Bar(
-                x=b["usd"], y=b["label"], orientation="h",
-                marker_color="#ef4444",
-                text=[f"${v:,.0f}" for v in b["usd"]],
-                textposition="outside"))
-            lk = plotly_layout(title=t("leaks_by_type"))
-            lk["height"] = 300
-            lk["yaxis"] = themed_axis(type="category")
-            figl.update_layout(**lk)
-            st.plotly_chart(figl, use_container_width=True)
-
-        with rc:
-            rows = []
-            for _, r in by_type.sort_values("usd", ascending=False).iterrows():
-                label = LEAK_LABELS.get(r["leak_type"], r["leak_type"])
-                share = float(r["usd"]) / total_leak * 100 if total_leak else 0
-                rows.append(
-                    f'<div style="padding:12px 0;border-bottom:1px solid '
-                    f'{th["border"]};">'
-                    f'<div style="display:flex;justify-content:space-between;'
-                    f'align-items:baseline;">'
-                    f'<span style="color:{th["text"]};font-size:14px;">{label}</span>'
-                    f'<span style="color:#ef4444;font-weight:700;'
-                    f'font-size:16px;white-space:nowrap;margin-left:12px;">'
-                    f'${float(r["usd"]):,.0f}</span></div>'
-                    f'<div style="color:{th["muted"]};font-size:12px;'
-                    f'margin-top:3px;">{int(r["sku_count"])} SKU · '
-                    f'{share:.0f}% {t("leaks_of_total")}</div></div>')
+        # дві картки: втрачене і заморожене — принципово різні речі
+        hl, hr = st.columns([1, 1])
+        with hl:
             st.markdown(
                 f'<div style="background:{th["card"]};'
-                f'border:1px solid {th["border"]};border-radius:12px;'
-                f'padding:4px 20px 8px 20px;">{"".join(rows)}</div>',
+                f'border:1px solid #ef444455;border-left:4px solid #ef4444;'
+                f'border-radius:14px;padding:20px 24px;height:100%;">'
+                f'<div style="color:{th["muted"]};font-size:12px;'
+                f'letter-spacing:.08em;text-transform:uppercase;'
+                f'margin-bottom:8px;">💸 {t("leaks_lost_title")}</div>'
+                f'<div style="color:#ef4444;font-size:32px;font-weight:800;'
+                f'line-height:1.1;">${total_lost:,.0f}</div>'
+                f'<div style="color:{th["muted"]};font-size:12px;'
+                f'margin-top:6px;">{t("leaks_lost_note")}</div></div>',
+                unsafe_allow_html=True)
+        with hr:
+            st.markdown(
+                f'<div style="background:{th["card"]};'
+                f'border:1px solid {ACCENT2}55;border-left:4px solid {ACCENT2};'
+                f'border-radius:14px;padding:20px 24px;height:100%;">'
+                f'<div style="color:{th["muted"]};font-size:12px;'
+                f'letter-spacing:.08em;text-transform:uppercase;'
+                f'margin-bottom:8px;">🧊 {t("leaks_frozen_title")}</div>'
+                f'<div style="color:{ACCENT2};font-size:32px;font-weight:800;'
+                f'line-height:1.1;">${total_frozen:,.0f}</div>'
+                f'<div style="color:{th["muted"]};font-size:12px;'
+                f'margin-top:6px;">{t("leaks_frozen_note")}</div></div>',
                 unsafe_allow_html=True)
 
-        # ---- топ позицій із причинами ----
+        st.markdown("")
+
+        # розбивка втрат за типом
+        if not lost.empty:
+            lc, rc = st.columns([1, 1])
+            with lc:
+                b = lost.copy()
+                b["label"] = b["leak_type"].map(lambda x: LEAK_LABELS.get(x, x))
+                b = b.sort_values("usd")
+                figl = go.Figure(go.Bar(
+                    x=b["usd"], y=b["label"], orientation="h",
+                    marker_color="#ef4444",
+                    text=[f"${v:,.0f}" for v in b["usd"]],
+                    textposition="outside"))
+                lk = plotly_layout(title=t("leaks_by_type"))
+                lk["height"] = 280
+                lk["yaxis"] = themed_axis(type="category")
+                figl.update_layout(**lk)
+                st.plotly_chart(figl, use_container_width=True)
+
+            with rc:
+                rows = []
+                for _, r in lost.sort_values("usd", ascending=False).iterrows():
+                    label = LEAK_LABELS.get(r["leak_type"], r["leak_type"])
+                    share = (float(r["usd"]) / total_lost * 100
+                             if total_lost else 0)
+                    rows.append(
+                        f'<div style="padding:12px 0;border-bottom:1px solid '
+                        f'{th["border"]};">'
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'align-items:baseline;">'
+                        f'<span style="color:{th["text"]};font-size:14px;">'
+                        f'{label}</span>'
+                        f'<span style="color:#ef4444;font-weight:700;'
+                        f'font-size:16px;white-space:nowrap;margin-left:12px;">'
+                        f'${float(r["usd"]):,.0f}</span></div>'
+                        f'<div style="color:{th["muted"]};font-size:12px;'
+                        f'margin-top:3px;">{int(r["sku_count"])} SKU · '
+                        f'{share:.0f}% {t("leaks_of_total")}</div></div>')
+                st.markdown(
+                    f'<div style="background:{th["card"]};'
+                    f'border:1px solid {th["border"]};border-radius:12px;'
+                    f'padding:4px 20px 8px 20px;">{"".join(rows)}</div>',
+                    unsafe_allow_html=True)
+
+        # топ саме втрат — список для дії
         st.markdown("")
         st.markdown(f"**{t('leaks_top_positions')}**")
 
         top_leaks = q("""
-            SELECT leak_type, seller_sku, asin, amount_usd, detail, severity
+            SELECT leak_type, seller_sku, asin, amount_usd, detail
             FROM merinnovation.money_leaks
+            WHERE category = 'lost_revenue'
             ORDER BY amount_usd DESC LIMIT 15
         """)
 
-        if not top_leaks.empty:
+        if top_leaks.empty:
+            st.caption(t("leaks_none"))
+        else:
             items = []
             for _, r in top_leaks.iterrows():
                 det = r["detail"]
