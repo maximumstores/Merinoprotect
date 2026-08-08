@@ -3,18 +3,19 @@
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db import (ACCENT, ACCENT2, AMAZON_DOMAINS, cell_link, cell_photo,
-                download_csv_button, inject_css, lang_selector, metric_card,
-                mp_label, plotly_layout, q, render_html_table, sort_controls,
-                t, themed_axis)
+                cur_theme, download_csv_button, inject_css, lang_selector,
+                metric_card, mp_label, plotly_layout, q, render_html_table,
+                sort_controls, t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · Reviews",
                    page_icon="🐑")
@@ -27,8 +28,6 @@ AGE_MIN, AGE_MAX = 8, 33
 st.markdown(f"## {t('reviews_title')}")
 
 # ------------------------------------------------- перевірка таблиці ----
-# Сторінка не має падати трейсбеком, якщо лоадер ще не відпрацював
-# і таблиці review_requests просто немає.
 exists = q("""
     SELECT COUNT(*) AS n
     FROM information_schema.tables
@@ -37,6 +36,42 @@ exists = q("""
 if exists.empty or int(exists["n"].iloc[0]) == 0:
     st.info(t("no_reviews_data"))
     st.stop()
+
+
+# ------------------------------------------------------- хелпери ----
+def agg_period(df, date_col, gran, sum_cols):
+    """Агрегує по періоду: день / тиждень / місяць."""
+    d = df.copy()
+    d[date_col] = pd.to_datetime(d[date_col])
+    if gran == "week":
+        d["period"] = d[date_col].dt.to_period("W")
+        d["label"] = d["period"].dt.start_time.dt.strftime("%d.%m.%y")
+    elif gran == "month":
+        d["period"] = d[date_col].dt.to_period("M")
+        d["label"] = d["period"].dt.strftime("%Y-%m")
+    else:
+        d["period"] = d[date_col].dt.normalize()
+        d["label"] = d[date_col].dt.strftime("%d.%m")
+    return (d.groupby(["period", "label"], as_index=False)[list(sum_cols)]
+            .sum().sort_values("period"))
+
+
+# ------------------------------------------------------- фільтри ----
+fc1, fc2, fc3, _ = st.columns([2, 2, 2, 4])
+with fc1:
+    period_map = {t("per_30"): 30, t("per_60"): 60, t("per_90"): 90}
+    period_label = st.selectbox(t("flt_period"), list(period_map),
+                                index=0, key="rv_period")
+    period_days = period_map[period_label]
+with fc2:
+    gran_map = {t("gran_day"): "day", t("gran_week"): "week",
+                t("gran_month"): "month"}
+    gran_label = st.selectbox(t("flt_gran"), list(gran_map), index=0,
+                              key="rv_gran")
+    gran = gran_map[gran_label]
+with fc3:
+    threshold = st.selectbox(t("flt_threshold"), [90, 85, 80, 75, 70],
+                             index=2, key="rv_threshold")
 
 # ------------------------------------------------------------ health ----
 kpi = q("""
@@ -99,28 +134,90 @@ with c4:
 
 st.markdown("")
 
+# ------------------------------------------------ дані покриття ----
+cov = q(f"""
+    WITH ord AS (
+        SELECT purchase_date::date AS day,
+               COUNT(DISTINCT amazon_order_id) AS orders
+        FROM merinnovation.orders
+        WHERE order_status = 'Shipped'
+          AND purchase_date >= NOW() - INTERVAL '{period_days} days'
+        GROUP BY 1
+    ), req AS (
+        SELECT o.purchase_date::date AS day,
+               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='sent') AS sent,
+               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='already') AS already,
+               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status LIKE 'failed%%') AS errors
+        FROM merinnovation.review_requests r
+        JOIN merinnovation.orders o ON o.amazon_order_id = r.order_id
+        WHERE o.purchase_date >= NOW() - INTERVAL '{period_days} days'
+        GROUP BY 1
+    )
+    SELECT ord.day, ord.orders,
+           COALESCE(req.sent,0) AS sent,
+           COALESCE(req.already,0) AS already,
+           COALESCE(req.errors,0) AS errors
+    FROM ord LEFT JOIN req USING (day)
+    ORDER BY ord.day DESC
+""")
+
+# --------------------------- Orders vs Requests (комбо з покриттям) ----
+if not cov.empty:
+    cov["covered"] = cov["sent"] + cov["already"]
+    cov["unprocessed"] = (cov["orders"] - cov["covered"]).clip(lower=0)
+    cov["coverage"] = (cov["covered"] / cov["orders"].replace(0, pd.NA) * 100).round(1)
+
+    st.markdown(f"**{t('combo_title')}**")
+    cc = agg_period(cov, "day", gran, ["orders", "covered"])
+    cc["coverage"] = (cc["covered"] / cc["orders"].where(cc["orders"] > 0)
+                      * 100).fillna(0).round(1)
+
+    th = cur_theme()
+    figc = make_subplots(specs=[[{"secondary_y": True}]])
+    figc.add_trace(go.Bar(name=t("cov_orders"), x=cc["label"], y=cc["orders"],
+                          marker_color=ACCENT2), secondary_y=False)
+    figc.add_trace(go.Bar(name=t("combo_processed"), x=cc["label"], y=cc["covered"],
+                          marker_color=ACCENT), secondary_y=False)
+    figc.add_trace(go.Scatter(name=t("cov_pct"), x=cc["label"], y=cc["coverage"],
+                              mode="lines+markers",
+                              line=dict(color="#cc5de8", width=2)),
+                   secondary_y=True)
+    figc.add_hline(y=threshold, line_dash="dot", line_color="#f59e0b",
+                   secondary_y=True, opacity=0.7)
+
+    lk = plotly_layout()
+    lk["barmode"] = "group"
+    lk["height"] = 380
+    lk["xaxis"] = themed_axis(type="category", showgrid=False)
+    figc.update_layout(**lk)
+    figc.update_yaxes(gridcolor=th["grid"], color=th["chart_font"],
+                      tickfont=dict(color=th["chart_font"]), secondary_y=False)
+    figc.update_yaxes(range=[0, 105], ticksuffix="%", showgrid=False,
+                      color=th["chart_font"],
+                      tickfont=dict(color=th["chart_font"]), secondary_y=True)
+    st.plotly_chart(figc, use_container_width=True)
+
 # ------------------------------------------------- обсяг по днях ----
-daily = q("""
+daily = q(f"""
     SELECT sent_at::date AS day,
            COUNT(*) FILTER (WHERE status='sent') AS sent,
            COUNT(*) FILTER (WHERE status='already') AS already,
            COUNT(*) FILTER (WHERE status='outside') AS outside,
            COUNT(*) FILTER (WHERE status LIKE 'failed%%') AS failed
     FROM merinnovation.review_requests
-    WHERE sent_at >= NOW() - INTERVAL '30 days'
+    WHERE sent_at >= NOW() - INTERVAL '{period_days} days'
     GROUP BY 1 ORDER BY 1
 """)
 
 if not daily.empty:
-    daily["label"] = pd.to_datetime(daily["day"]).dt.strftime("%d.%m")
+    dd = agg_period(daily, "day", gran, ["sent", "already", "outside", "failed"])
     fig = go.Figure()
-    fig.add_bar(x=daily["label"], y=daily["sent"], name=t("st_sent"),
-                marker_color=ACCENT)
-    fig.add_bar(x=daily["label"], y=daily["already"], name=t("st_already"),
+    fig.add_bar(x=dd["label"], y=dd["sent"], name=t("st_sent"), marker_color=ACCENT)
+    fig.add_bar(x=dd["label"], y=dd["already"], name=t("st_already"),
                 marker_color=ACCENT2)
-    fig.add_bar(x=daily["label"], y=daily["outside"], name=t("st_outside"),
+    fig.add_bar(x=dd["label"], y=dd["outside"], name=t("st_outside"),
                 marker_color="#f59e0b")
-    fig.add_bar(x=daily["label"], y=daily["failed"], name=t("st_failed"),
+    fig.add_bar(x=dd["label"], y=dd["failed"], name=t("st_failed"),
                 marker_color="#ef4444")
     lk = plotly_layout(title=t("daily_volume"))
     lk["barmode"] = "stack"
@@ -153,15 +250,16 @@ with gr:
         SELECT
           (SELECT COUNT(*) FROM merinnovation.orders
             WHERE order_status='Shipped'
-              AND purchase_date >= NOW() - INTERVAL '30 days') AS orders30,
+              AND purchase_date >= NOW() - INTERVAL '{period_days} days') AS orders_p,
           (SELECT COUNT(*) FROM merinnovation.review_requests
-            WHERE status='sent' AND sent_at >= NOW() - INTERVAL '30 days') AS sent30
+            WHERE status='sent'
+              AND sent_at >= NOW() - INTERVAL '{period_days} days') AS sent_p
     """)
     f = funnel.iloc[0] if not funnel.empty else {}
     figf = go.Figure(go.Funnel(
         y=[t("f_orders"), t("f_pool"), t("f_sent")],
-        x=[int(f.get("orders30", 0) or 0), int(p.get("pool_total", 0) or 0),
-           int(f.get("sent30", 0) or 0)],
+        x=[int(f.get("orders_p", 0) or 0), int(p.get("pool_total", 0) or 0),
+           int(f.get("sent_p", 0) or 0)],
         textinfo="value+percent initial",
         marker=dict(color=[ACCENT2, "#f59e0b", ACCENT])))
     lk = plotly_layout(title=t("funnel_title"))
@@ -170,39 +268,10 @@ with gr:
     st.plotly_chart(figf, use_container_width=True)
 
 # ------------------------------------------- покриття по датах ----
-st.markdown(f"**{t('coverage_title')}**")
-st.caption(t("coverage_note"))
-
-cov = q(f"""
-    WITH ord AS (
-        SELECT purchase_date::date AS day,
-               COUNT(DISTINCT amazon_order_id) AS orders
-        FROM merinnovation.orders
-        WHERE order_status = 'Shipped'
-          AND purchase_date >= NOW() - INTERVAL '45 days'
-        GROUP BY 1
-    ), req AS (
-        SELECT o.purchase_date::date AS day,
-               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='sent') AS sent,
-               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='already') AS already,
-               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status LIKE 'failed%%') AS errors
-        FROM merinnovation.review_requests r
-        JOIN merinnovation.orders o ON o.amazon_order_id = r.order_id
-        WHERE o.purchase_date >= NOW() - INTERVAL '45 days'
-        GROUP BY 1
-    )
-    SELECT ord.day, ord.orders,
-           COALESCE(req.sent,0) AS sent,
-           COALESCE(req.already,0) AS already,
-           COALESCE(req.errors,0) AS errors
-    FROM ord LEFT JOIN req USING (day)
-    ORDER BY ord.day DESC
-""")
-
 if not cov.empty:
-    cov["covered"] = cov["sent"] + cov["already"]
-    cov["unprocessed"] = (cov["orders"] - cov["covered"]).clip(lower=0)
-    cov["coverage"] = (cov["covered"] / cov["orders"].replace(0, pd.NA) * 100).round(1)
+    st.markdown(f"**{t('coverage_title')}**")
+    st.caption(t("coverage_note"))
+
     today = pd.Timestamp(datetime.now().date())
     cov["age"] = (today - pd.to_datetime(cov["day"])).dt.days
 
@@ -211,7 +280,7 @@ if not cov.empty:
             return "maturing"
         if pd.isna(r["coverage"]):
             return "none"
-        if r["coverage"] >= 90:
+        if r["coverage"] >= threshold:
             return "ok"
         return "progress" if r["age"] <= AGE_MAX else "missed"
 
@@ -237,8 +306,20 @@ if not cov.empty:
     with m3:
         metric_card(t("missed_total"), f"{t_missed:,}", sub=t("missed_sub"))
 
+    # фільтр за статусом
+    st_options = [t("flt_all"), "🟢 " + t("st_ok"), "🟠 " + t("st_progress"),
+                  "🔴 " + t("st_missed"), "⏳ " + t("st_maturing")]
+    st_sel = st.selectbox(t("flt_status"), st_options, key="rv_status")
+
+    view = cov.copy()
+    if st_sel != t("flt_all"):
+        key_by_label = {ST_LABEL[k]: k for k in ST_LABEL}
+        want = key_by_label.get(st_sel)
+        if want:
+            view = view[view["st"] == want]
+
     rows = []
-    for rec in cov.to_dict("records"):
+    for rec in view.to_dict("records"):
         rec["_row_class"] = ST_CLASS.get(rec["st"], "")
         rec["day_label"] = pd.to_datetime(rec["day"]).strftime("%d.%m.%Y")
         rec["st_label"] = ST_LABEL.get(rec["st"], "")
@@ -257,16 +338,18 @@ if not cov.empty:
     ]
     render_html_table(rows, columns, height=420)
     download_csv_button(
-        cov[["day", "orders", "sent", "already", "errors", "coverage",
-             "unprocessed", "st"]],
+        view[["day", "orders", "sent", "already", "errors", "coverage",
+              "unprocessed", "st"]],
         "review_coverage", key="reviews_cov")
-    st.caption(t("coverage_legend"))
+
+    with st.expander(t("legend_title")):
+        st.markdown(t("legend_body").format(th=threshold))
 
 # ---------------------------------------------------------- по ASIN ----
 st.markdown("")
 st.markdown(f"**{t('by_asin_title')}**")
 
-by_asin = q("""
+by_asin = q(f"""
     SELECT oi.asin,
            COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='sent') AS sent,
            COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='already') AS already,
@@ -278,7 +361,7 @@ by_asin = q("""
     JOIN merinnovation.order_items oi USING (amazon_order_id)
     LEFT JOIN merinnovation.catalog_images c
       ON c.asin = oi.asin AND c.marketplace_id = o.marketplace_id
-    WHERE r.sent_at >= NOW() - INTERVAL '30 days'
+    WHERE r.sent_at >= NOW() - INTERVAL '{period_days} days'
       AND oi.asin IS NOT NULL
     GROUP BY oi.asin
     ORDER BY sent DESC
@@ -291,22 +374,51 @@ else:
         "https://" + by_asin["marketplace_id"].map(AMAZON_DOMAINS).fillna("amazon.com")
         + "/dp/" + by_asin["asin"].fillna(""))
 
-    st.caption(t("sort_hint"))
-    sort_col, sort_asc = sort_controls(
-        {t("st_sent"): "sent", t("st_already"): "already", "ASIN": "asin"},
-        key="reviews_asin", default_index=0, default_desc=True)
-    by_asin = by_asin.sort_values(sort_col, ascending=sort_asc)
+    # ---- зведення по блоку ----
+    s1, s2, s3, s4 = st.columns(4)
+    with s1:
+        metric_card(t("st_sent"), f"{int(by_asin['sent'].sum()):,}")
+    with s2:
+        metric_card(t("st_already"), f"{int(by_asin['already'].sum()):,}")
+    with s3:
+        metric_card(t("st_outside"), f"{int(by_asin['outside'].sum()):,}")
+    with s4:
+        metric_card(t("active_asins"), f"{int((by_asin['sent'] > 0).sum()):,}")
 
-    columns_a = [
-        ("", lambda r: cell_photo(r.get("image_url"))),
-        ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
-        (t("st_sent"), lambda r: str(int(r.get("sent", 0)))),
-        (t("st_already"), lambda r: str(int(r.get("already", 0)))),
-        (t("st_outside"), lambda r: str(int(r.get("outside", 0)))),
-    ]
-    render_html_table(by_asin.to_dict("records"), columns_a, height=420)
-    download_csv_button(
-        by_asin[["asin", "sent", "already", "outside"]],
-        "review_by_asin", key="reviews_asin_csv")
+    st.markdown("")
+
+    al, ar = st.columns([1, 1])
+
+    # ---- зліва: топ-15 ASIN за надісланими ----
+    with al:
+        top = by_asin.sort_values("sent", ascending=False).head(15).sort_values("sent")
+        figt = go.Figure(go.Bar(
+            x=top["sent"], y=top["asin"], orientation="h",
+            marker_color=ACCENT, text=top["sent"], textposition="outside"))
+        lk = plotly_layout(title=t("asin_chart_title"))
+        lk["height"] = max(320, 26 * len(top))
+        lk["yaxis"] = themed_axis(type="category")
+        figt.update_layout(**lk)
+        st.plotly_chart(figt, use_container_width=True)
+
+    # ---- справа: таблиця ----
+    with ar:
+        st.caption(t("sort_hint"))
+        sort_col, sort_asc = sort_controls(
+            {t("st_sent"): "sent", t("st_already"): "already", "ASIN": "asin"},
+            key="reviews_asin", default_index=0, default_desc=True)
+        by_asin = by_asin.sort_values(sort_col, ascending=sort_asc)
+
+        columns_a = [
+            ("", lambda r: cell_photo(r.get("image_url"))),
+            ("ASIN", lambda r: cell_link(r.get("asin_link"), r.get("asin") or "")),
+            (t("st_sent"), lambda r: str(int(r.get("sent", 0)))),
+            (t("st_already"), lambda r: str(int(r.get("already", 0)))),
+            (t("st_outside"), lambda r: str(int(r.get("outside", 0)))),
+        ]
+        render_html_table(by_asin.to_dict("records"), columns_a, height=460)
+        download_csv_button(
+            by_asin[["asin", "sent", "already", "outside"]],
+            "review_by_asin", key="reviews_asin_csv")
 
 st.caption(t("reviews_cache_note"))
