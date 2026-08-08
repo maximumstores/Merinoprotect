@@ -129,6 +129,30 @@ TRANSLATIONS = {
         "units_label": "одиниць", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Дані з sales_traffic · Amazon Sales & Traffic Report",
         "download_csv": "⬇ Скачати CSV",
+        "per_30": "30 днів", "per_60": "60 днів", "per_90": "90 днів",
+        "flt_period": "Період", "flt_gran": "Деталізація",
+        "flt_threshold": "Поріг покриття", "flt_status": "Статус", "flt_all": "Усі",
+        "gran_day": "День", "gran_week": "Тиждень", "gran_month": "Місяць",
+        "combo_title": "Замовлення та запити за датами замовлення",
+        "combo_processed": "Оброблено (надіслано + вже було)",
+        "legend_title": "Легенда статусів і як рахується покриття",
+        "legend_body": """
+**🟢 OK** (≥{th}%) — запити пішли, робити нічого не треба.
+
+**🟠 В роботі** — нижче цілі, але вікно 5-30 днів ще відкрите. Запити дошлються автоматично, ці дати покриються. Це **не втрата**.
+
+**🔴 Упущено** — вікно закрилось, а покриття лишилось низьким. Ці відгуки втрачені назавжди. Єдиний статус, який є реальною проблемою.
+
+**⏳ Зріє** — замовлення молодше 8 днів, вікно ще не відкрилось. Норма, покриється саме.
+
+---
+
+`Покриття % = (надіслано + вже було) / замовлень × 100`
+
+`Не оброблено = замовлень − (надіслано + вже було)`
+
+Підсумок рахується **лише по дозрілих датах** — інакше нулі свіжих днів занижували б загальний відсоток.
+""",
         "nav_reviews": "Відгуки", "reviews_title": "Запити на відгуки",
         "no_reviews_data": "Немає даних — запусти 11_review_requests.py",
         "health_ok": "Розсилка працює — останній прогін у межах 25 год",
@@ -153,7 +177,9 @@ TRANSLATIONS = {
         "st_ok": "OK", "st_progress": "В роботі", "st_missed": "Упущено",
         "st_maturing": "Зріє",
         "coverage_legend": "🟢 покриття в нормі · 🟠 вікно ще відкрите, доганяємо · 🔴 вікно закрилось, відгуки втрачені · ⏳ замовлення надто свіже",
-        "by_asin_title": "За товарами (30 днів)",
+        "by_asin_title": "За товарами",
+        "active_asins": "Активних ASIN",
+        "asin_chart_title": "Топ ASIN за надісланими запитами",
         "no_asin_data": "Немає даних по ASIN",
         "reviews_cache_note": "Дані з review_requests · Solicitations API",
         "nav_forecast": "Прогноз", "forecast_title": "Прогноз запасів",
@@ -218,6 +244,30 @@ TRANSLATIONS = {
         "units_label": "единиц", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Данные из sales_traffic · Amazon Sales & Traffic Report",
         "download_csv": "⬇ Скачать CSV",
+        "per_30": "30 дней", "per_60": "60 дней", "per_90": "90 дней",
+        "flt_period": "Период", "flt_gran": "Детализация",
+        "flt_threshold": "Порог покрытия", "flt_status": "Статус", "flt_all": "Все",
+        "gran_day": "День", "gran_week": "Неделя", "gran_month": "Месяц",
+        "combo_title": "Заказы и запросы по датам заказа",
+        "combo_processed": "Обработано (отправлено + уже было)",
+        "legend_title": "Легенда статусов и как считается покрытие",
+        "legend_body": """
+**🟢 OK** (≥{th}%) — запросы ушли, делать ничего не нужно.
+
+**🟠 В работе** — ниже цели, но окно 5-30 дней ещё открыто. Запросы дошлются автоматически, эти даты покроются. Это **не потеря**.
+
+**🔴 Упущено** — окно закрылось, а покрытие осталось низким. Эти отзывы потеряны навсегда. Единственный статус, который реальная проблема.
+
+**⏳ Зреет** — заказ моложе 8 дней, окно ещё не открылось. Норма, покроется само.
+
+---
+
+`Покрытие % = (отправлено + уже было) / заказов × 100`
+
+`Не обработано = заказов − (отправлено + уже было)`
+
+Итог считается **только по дозревшим датам** — иначе нули свежих дней занижали бы общий процент.
+""",
         "nav_reviews": "Отзывы", "reviews_title": "Запросы на отзывы",
         "no_reviews_data": "Нет данных — запусти 11_review_requests.py",
         "health_ok": "Рассылка работает — последний прогон в пределах 25 ч",
@@ -242,7 +292,9 @@ TRANSLATIONS = {
         "st_ok": "OK", "st_progress": "В работе", "st_missed": "Упущено",
         "st_maturing": "Зреет",
         "coverage_legend": "🟢 покрытие в норме · 🟠 окно ещё открыто, догоняем · 🔴 окно закрылось, отзывы потеряны · ⏳ заказ слишком свежий",
-        "by_asin_title": "По товарам (30 дней)",
+        "by_asin_title": "По товарам",
+        "active_asins": "Активных ASIN",
+        "asin_chart_title": "Топ ASIN по отправленным запросам",
         "no_asin_data": "Нет данных по ASIN",
         "reviews_cache_note": "Данные из review_requests · Solicitations API",
         "nav_forecast": "Прогноз", "forecast_title": "Прогноз запасов",
@@ -307,6 +359,30 @@ TRANSLATIONS = {
         "units_label": "units", "buybox_label": "Buy Box %",
         "traffic_cache_note": "Data from sales_traffic · Amazon Sales \u0026 Traffic Report",
         "download_csv": "⬇ Download CSV",
+        "per_30": "30 days", "per_60": "60 days", "per_90": "90 days",
+        "flt_period": "Period", "flt_gran": "Granularity",
+        "flt_threshold": "Coverage target", "flt_status": "Status", "flt_all": "All",
+        "gran_day": "Day", "gran_week": "Week", "gran_month": "Month",
+        "combo_title": "Orders vs requests by order date",
+        "combo_processed": "Processed (sent + already)",
+        "legend_title": "Status legend and how coverage is calculated",
+        "legend_body": """
+**🟢 OK** (≥{th}%) — requests went out, nothing to do.
+
+**🟠 In progress** — below target, but the 5-30 day window is still open. Requests will be sent automatically. This is **not a loss**.
+
+**🔴 Missed** — the window closed with coverage still low. These reviews are lost for good. The only status that is a real problem.
+
+**⏳ Maturing** — order is under 8 days old, the window hasn't opened yet. Normal, will be covered automatically.
+
+---
+
+`Coverage % = (sent + already) / orders × 100`
+
+`Unprocessed = orders − (sent + already)`
+
+The total counts **matured dates only** — otherwise zeros from recent days would drag the overall percentage down.
+""",
         "nav_reviews": "Reviews", "reviews_title": "Review Requests",
         "no_reviews_data": "No data — run 11_review_requests.py",
         "health_ok": "Sending healthy — last run within 25h",
@@ -331,7 +407,9 @@ TRANSLATIONS = {
         "st_ok": "OK", "st_progress": "In progress", "st_missed": "Missed",
         "st_maturing": "Maturing",
         "coverage_legend": "🟢 on target · 🟠 window still open, catching up · 🔴 window closed, reviews lost · ⏳ order too recent",
-        "by_asin_title": "By product (30 days)",
+        "by_asin_title": "By product",
+        "active_asins": "Active ASINs",
+        "asin_chart_title": "Top ASIN by requests sent",
         "no_asin_data": "No ASIN data",
         "reviews_cache_note": "Data from review_requests · Solicitations API",
         "nav_forecast": "Forecast", "forecast_title": "Inventory Forecast",
