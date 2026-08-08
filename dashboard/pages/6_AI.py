@@ -214,11 +214,22 @@ if not daily.empty:
 st.markdown("---")
 
 # ================================================== ДЕ ТЕЧУТЬ ГРОШІ ----
+# Перевіряємо не лише таблицю, а й КОЛОНКУ: якщо лоадер ще старої версії,
+# category немає, і сторінка падала б трейсбеком замість спокійного напису.
 leaks_exist = q("""
-    SELECT COUNT(*) AS n FROM information_schema.tables
+    SELECT COUNT(*) AS n FROM information_schema.columns
     WHERE table_schema='merinnovation' AND table_name='money_leaks'
+      AND column_name='category'
 """)
 has_leaks = not leaks_exist.empty and int(leaks_exist["n"].iloc[0]) > 0
+
+if not has_leaks:
+    table_only = q("""
+        SELECT COUNT(*) AS n FROM information_schema.tables
+        WHERE table_schema='merinnovation' AND table_name='money_leaks'
+    """)
+    if not table_only.empty and int(table_only["n"].iloc[0]) > 0:
+        st.info(t("leaks_need_rerun"))
 
 if has_leaks:
     by_type = q("""
