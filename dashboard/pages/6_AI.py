@@ -156,18 +156,21 @@ def parsed_of(row) -> dict:
 
 # ============================================================ рендер ----
 
-def render_headline(d: dict, title: str, icon: str):
+def render_headline(d: dict, title: str, icon: str, big: bool = False):
     color, sev_icon = SEV.get(d.get("severity", "ok"), SEV["ok"])
     head = (d.get("headline") or "").replace("<", "&lt;")
+    size = "26px" if big else "18px"
+    pad = "26px 30px" if big else "18px 22px"
     st.markdown(
         f'<div style="background:{th["card"]};border:1px solid {th["border"]};'
         f'border-left:4px solid {color};border-radius:14px;'
-        f'padding:22px 26px;margin-bottom:18px;">'
-        f'<div style="color:{th["muted"]};font-size:12px;letter-spacing:.08em;'
-        f'text-transform:uppercase;margin-bottom:12px;">{icon} {title}</div>'
-        f'<div style="color:{th["text"]};font-size:22px;font-weight:600;'
-        f'line-height:1.4;">{sev_icon} {head}</div></div>',
-        unsafe_allow_html=True)
+        f'padding:{pad};margin-bottom:14px;">'
+        f'<div style="color:{th["muted"]};font-size:11px;letter-spacing:.1em;'
+        f'text-transform:uppercase;margin-bottom:10px;font-weight:600;">'
+        f'{icon} {title}</div>'
+        f'<div style="color:{th["text"]};font-size:{size};font-weight:650;'
+        f'line-height:1.35;letter-spacing:-0.01em;">{sev_icon} {head}</div>'
+        f'</div>', unsafe_allow_html=True)
 
 
 def render_findings(d: dict):
@@ -176,25 +179,24 @@ def render_findings(d: dict):
         return
     rows = []
     for f in findings:
-        arrow = {"up": "▲", "down": "▼"}.get(f.get("direction"), "•")
+        arrow = {"up": "▲", "down": "▼"}.get(f.get("direction"), "")
         a_color = {"up": ACCENT, "down": "#ef4444"}.get(
             f.get("direction"), th["muted"])
         text = (f.get("text") or "").replace("<", "&lt;")
         metric = (f.get("metric") or "").replace("<", "&lt;")
         metric_html = (
-            f'<span style="color:{a_color};font-weight:700;font-size:15px;'
-            f'white-space:nowrap;margin-left:14px;">{metric}</span>'
-            if metric else "")
+            f'<span style="color:{a_color};font-weight:750;font-size:15px;'
+            f'white-space:nowrap;margin-left:18px;font-variant-numeric:'
+            f'tabular-nums;">{arrow} {metric}</span>' if metric else "")
         rows.append(
-            f'<div style="display:flex;align-items:flex-start;'
-            f'justify-content:space-between;gap:12px;padding:11px 0;'
+            f'<div style="display:flex;align-items:baseline;'
+            f'justify-content:space-between;gap:12px;padding:10px 0;'
             f'border-bottom:1px solid {th["border"]};">'
-            f'<div style="color:{th["text"]};font-size:14px;line-height:1.55;">'
-            f'<span style="color:{a_color};margin-right:8px;">{arrow}</span>'
+            f'<div style="color:{th["text"]};font-size:14px;line-height:1.5;">'
             f'{text}</div>{metric_html}</div>')
     st.markdown(
         f'<div style="background:{th["card"]};border:1px solid {th["border"]};'
-        f'border-radius:12px;padding:6px 20px 10px 20px;margin-bottom:14px;">'
+        f'border-radius:12px;padding:4px 22px 8px 22px;margin-bottom:12px;">'
         f'{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
@@ -203,15 +205,16 @@ def render_actions(d: dict):
     if not actions:
         return
     items = "".join(
-        f'<div style="padding:9px 0;color:{th["text"]};font-size:14px;">'
+        f'<div style="padding:8px 0;color:{th["text"]};font-size:14px;'
+        f'line-height:1.5;">'
         f'<span style="color:{ACCENT};font-weight:700;margin-right:10px;">→</span>'
         f'{str(a).replace("<", "&lt;")}</div>' for a in actions)
     st.markdown(
-        f'<div style="background:{th["card"]};'
-        f'border:1px solid {ACCENT}55;border-radius:12px;'
-        f'padding:14px 20px;margin-bottom:18px;">'
-        f'<div style="color:{ACCENT};font-size:12px;letter-spacing:.08em;'
-        f'text-transform:uppercase;margin-bottom:6px;font-weight:700;">'
+        f'<div style="background:{ACCENT}0d;'
+        f'border:1px solid {ACCENT}44;border-radius:12px;'
+        f'padding:12px 22px;margin-bottom:20px;">'
+        f'<div style="color:{ACCENT};font-size:11px;letter-spacing:.1em;'
+        f'text-transform:uppercase;margin-bottom:4px;font-weight:700;">'
         f'{t("ai_actions")}</div>{items}</div>', unsafe_allow_html=True)
 
 
@@ -220,7 +223,7 @@ main_row = insights[insights["agent"] == "main"]
 if not main_row.empty:
     r = main_row.iloc[0]
     d = parsed_of(r)
-    render_headline(d, t("ai_main_summary"), AGENT_ICONS["main"])
+    render_headline(d, t("ai_main_summary"), AGENT_ICONS["main"], big=True)
     render_findings(d)
     render_actions(d)
     st.caption(f"{t('ai_model')}: {r['model']} · "
@@ -453,12 +456,16 @@ if not others.empty:
         lambda a: AGENT_ORDER.index(a) if a in AGENT_ORDER else 99)
     others = others.sort_values("order")
 
-    for _, row in others.iterrows():
-        d = parsed_of(row)
-        icon = AGENT_ICONS.get(row["agent"], "•")
-        render_headline(d, row["title"], icon)
-        render_findings(d)
-        render_actions(d)
+    records = others.to_dict("records")
+    for i in range(0, len(records), 2):
+        cols = st.columns(2)
+        for col, row in zip(cols, records[i:i + 2]):
+            with col:
+                d = parsed_of(row)
+                icon = AGENT_ICONS.get(row["agent"], "•")
+                render_headline(d, row["title"], icon)
+                render_findings(d)
+                render_actions(d)
 
 # ----------------------------------------------------------- історія ----
 with st.expander(t("ai_history")):
