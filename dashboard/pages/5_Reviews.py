@@ -26,12 +26,24 @@ AGE_MIN, AGE_MAX = 8, 33
 
 st.markdown(f"## {t('reviews_title')}")
 
+# ------------------------------------------------- перевірка таблиці ----
+# Сторінка не має падати трейсбеком, якщо лоадер ще не відпрацював
+# і таблиці review_requests просто немає.
+exists = q("""
+    SELECT COUNT(*) AS n
+    FROM information_schema.tables
+    WHERE table_schema = 'merinnovation' AND table_name = 'review_requests'
+""")
+if exists.empty or int(exists["n"].iloc[0]) == 0:
+    st.info(t("no_reviews_data"))
+    st.stop()
+
 # ------------------------------------------------------------ health ----
 kpi = q("""
     SELECT
       COUNT(*) FILTER (WHERE status='sent' AND sent_at::date = CURRENT_DATE) AS today,
       COUNT(*) FILTER (WHERE status='sent' AND sent_at >= NOW() - INTERVAL '7 days') AS sent7,
-      COUNT(*) FILTER (WHERE status LIKE 'failed%' AND sent_at >= NOW() - INTERVAL '7 days') AS failed7,
+      COUNT(*) FILTER (WHERE status LIKE 'failed%%' AND sent_at >= NOW() - INTERVAL '7 days') AS failed7,
       MAX(sent_at) FILTER (WHERE status='sent') AS last_sent,
       COUNT(*) AS total_rows
     FROM merinnovation.review_requests
@@ -93,7 +105,7 @@ daily = q("""
            COUNT(*) FILTER (WHERE status='sent') AS sent,
            COUNT(*) FILTER (WHERE status='already') AS already,
            COUNT(*) FILTER (WHERE status='outside') AS outside,
-           COUNT(*) FILTER (WHERE status LIKE 'failed%') AS failed
+           COUNT(*) FILTER (WHERE status LIKE 'failed%%') AS failed
     FROM merinnovation.review_requests
     WHERE sent_at >= NOW() - INTERVAL '30 days'
     GROUP BY 1 ORDER BY 1
@@ -173,7 +185,7 @@ cov = q(f"""
         SELECT o.purchase_date::date AS day,
                COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='sent') AS sent,
                COUNT(DISTINCT r.order_id) FILTER (WHERE r.status='already') AS already,
-               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status LIKE 'failed%') AS errors
+               COUNT(DISTINCT r.order_id) FILTER (WHERE r.status LIKE 'failed%%') AS errors
         FROM merinnovation.review_requests r
         JOIN merinnovation.orders o ON o.amazon_order_id = r.order_id
         WHERE o.purchase_date >= NOW() - INTERVAL '45 days'
