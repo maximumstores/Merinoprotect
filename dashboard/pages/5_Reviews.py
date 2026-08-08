@@ -346,6 +346,32 @@ if not cov.empty:
     with st.expander(t("legend_title")):
         st.markdown(t("legend_body").format(th=threshold))
 
+    # ------------------------------------------- heatmap покриття ----
+    heat = cov[cov["st"] != "maturing"].copy()
+    if len(heat) >= 7:
+        st.markdown(f"**{t('heatmap_title')}**")
+        st.caption(t("heatmap_note"))
+
+        heat["dt"] = pd.to_datetime(heat["day"])
+        heat["dow"] = heat["dt"].dt.dayofweek
+        heat["week"] = heat["dt"].dt.to_period("W").dt.start_time.dt.strftime("%d.%m")
+        heat["cov_val"] = heat["coverage"].fillna(0)
+
+        piv = heat.pivot_table(index="dow", columns="week",
+                               values="cov_val", aggfunc="mean").reindex(range(7))
+        dow_names = t("dow_names").split(",")
+
+        figh = go.Figure(go.Heatmap(
+            z=piv.values, x=list(piv.columns),
+            y=[dow_names[i] for i in piv.index],
+            colorscale=[[0, "#ef4444"], [0.8, "#f59e0b"], [1, ACCENT]],
+            zmin=0, zmax=100, colorbar=dict(title="%", ticksuffix="%"),
+            hovertemplate="%{y} · %{x}<br>%{z:.0f}%<extra></extra>"))
+        lk = plotly_layout()
+        lk["height"] = 300
+        figh.update_layout(**lk)
+        st.plotly_chart(figh, use_container_width=True)
+
 # ---------------------------------------------------------- по ASIN ----
 st.markdown("")
 st.markdown(f"**{t('by_asin_title')}**")
