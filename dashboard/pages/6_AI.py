@@ -1,37 +1,47 @@
 # -*- coding: utf-8 -*-
-"""Merinnovation Dashboard — висновки ІІ-аналітика."""
+"""Merinnovation Dashboard — ІІ-аналітик у форматі консалтингового звіту."""
 
+import json
 import os
 import sys
-from datetime import datetime
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (ACCENT, cur_theme, inject_css, lang_selector, q, t)
+from db import (ACCENT, ACCENT2, cur_theme, inject_css, lang_selector,
+                metric_card, plotly_layout, q, t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · AI", page_icon="🐑")
 lang_selector()
 inject_css()
 
+th = cur_theme()
+
+SEV = {
+    "critical": ("#ef4444", "🔴"),
+    "warning": ("#f59e0b", "🟠"),
+    "ok": (ACCENT, "🟢"),
+}
+AGENT_ICONS = {"main": "🧠", "sales": "📈", "stock": "📦",
+               "forecast": "🔮", "finance": "💰", "traffic": "🔍"}
+AGENT_ORDER = ["main", "sales", "stock", "forecast", "finance", "traffic"]
+
 st.markdown(f"## {t('ai_title')}")
 
 # ------------------------------------------------- перевірка таблиці ----
 exists = q("""
-    SELECT COUNT(*) AS n
-    FROM information_schema.tables
-    WHERE table_schema = 'merinnovation' AND table_name = 'ai_insights'
+    SELECT COUNT(*) AS n FROM information_schema.tables
+    WHERE table_schema='merinnovation' AND table_name='ai_insights'
 """)
 if exists.empty or int(exists["n"].iloc[0]) == 0:
     st.info(t("no_ai_data"))
     st.stop()
 
-# ------------------------------------------------------------- дані ----
 dates = q("""
-    SELECT DISTINCT report_date
-    FROM merinnovation.ai_insights
+    SELECT DISTINCT report_date FROM merinnovation.ai_insights
     ORDER BY report_date DESC LIMIT 30
 """)
 if dates.empty:
@@ -39,15 +49,14 @@ if dates.empty:
     st.stop()
 
 date_options = pd.to_datetime(dates["report_date"]).dt.date.tolist()
-
 fc1, _ = st.columns([2, 6])
 with fc1:
-    sel_date = st.selectbox(
-        t("ai_report_date"), date_options,
-        format_func=lambda d: d.strftime("%d.%m.%Y"), key="ai_date")
+    sel_date = st.selectbox(t("ai_report_date"), date_options,
+                            format_func=lambda d: d.strftime("%d.%m.%Y"),
+                            key="ai_date")
 
 insights = q("""
-    SELECT DISTINCT ON (agent) agent, title, content, model, created_at
+    SELECT DISTINCT ON (agent) agent, title, content, structured, model, created_at
     FROM merinnovation.ai_insights
     WHERE report_date = %s
     ORDER BY agent, created_at DESC
@@ -57,63 +66,292 @@ if insights.empty:
     st.info(t("no_ai_data"))
     st.stop()
 
-th = cur_theme()
 
-AGENT_ICONS = {
-    "main": "🧠", "sales": "📈", "stock": "📦",
-    "forecast": "🔮", "finance": "💰", "traffic": "🔍",
-}
-AGENT_ORDER = ["main", "sales", "stock", "forecast", "finance", "traffic"]
+def parsed_of(row) -> dict:
+    """structured може прийти як dict, як рядок JSON, або бути порожнім."""
+    s = row.get("structured")
+    if isinstance(s, dict):
+        return s
+    if isinstance(s, str) and s.strip():
+        try:
+            return json.loads(s)
+        except Exception:
+            pass
+    return {"headline": (row.get("content") or "")[:400],
+            "severity": "ok", "findings": [], "actions": []}
 
 
-def card(title: str, body: str, accent: bool = False):
-    border = ACCENT if accent else th["border"]
-    bg = th["card"]
-    safe = (body or "").replace("<", "&lt;").replace(">", "&gt;")
-    safe = safe.replace("\n", "<br>")
+# ============================================================ рендер ----
+
+def render_headline(d: dict, title: str, icon: str):
+    color, sev_icon = SEV.get(d.get("severity", "ok"), SEV["ok"])
+    head = (d.get("headline") or "").replace("<", "&lt;")
     st.markdown(
-        f'<div style="background:{bg};border:1px solid {border};'
-        f'border-left:3px solid {ACCENT if accent else border};'
-        f'border-radius:12px;padding:18px 20px;margin-bottom:14px;">'
-        f'<div style="color:{th["muted"]};font-size:13px;margin-bottom:10px;'
-        f'text-transform:uppercase;letter-spacing:.04em;">{title}</div>'
-        f'<div style="color:{th["text"]};font-size:15px;line-height:1.65;">'
-        f'{safe}</div></div>',
-        unsafe_allow_html=True,
-    )
+        f'<div style="background:{th["card"]};border:1px solid {th["border"]};'
+        f'border-left:4px solid {color};border-radius:14px;'
+        f'padding:22px 26px;margin-bottom:18px;">'
+        f'<div style="color:{th["muted"]};font-size:12px;letter-spacing:.08em;'
+        f'text-transform:uppercase;margin-bottom:12px;">{icon} {title}</div>'
+        f'<div style="color:{th["text"]};font-size:22px;font-weight:600;'
+        f'line-height:1.4;">{sev_icon} {head}</div></div>',
+        unsafe_allow_html=True)
 
 
-# --------------------------------------------------- головна сводка ----
-main = insights[insights["agent"] == "main"]
-if not main.empty:
-    r = main.iloc[0]
-    card(f"{AGENT_ICONS['main']} {r['title']}", r["content"], accent=True)
+def render_findings(d: dict):
+    findings = d.get("findings") or []
+    if not findings:
+        return
+    rows = []
+    for f in findings:
+        arrow = {"up": "▲", "down": "▼"}.get(f.get("direction"), "•")
+        a_color = {"up": ACCENT, "down": "#ef4444"}.get(
+            f.get("direction"), th["muted"])
+        text = (f.get("text") or "").replace("<", "&lt;")
+        metric = (f.get("metric") or "").replace("<", "&lt;")
+        metric_html = (
+            f'<span style="color:{a_color};font-weight:700;font-size:15px;'
+            f'white-space:nowrap;margin-left:14px;">{metric}</span>'
+            if metric else "")
+        rows.append(
+            f'<div style="display:flex;align-items:flex-start;'
+            f'justify-content:space-between;gap:12px;padding:11px 0;'
+            f'border-bottom:1px solid {th["border"]};">'
+            f'<div style="color:{th["text"]};font-size:14px;line-height:1.55;">'
+            f'<span style="color:{a_color};margin-right:8px;">{arrow}</span>'
+            f'{text}</div>{metric_html}</div>')
+    st.markdown(
+        f'<div style="background:{th["card"]};border:1px solid {th["border"]};'
+        f'border-radius:12px;padding:6px 20px 10px 20px;margin-bottom:14px;">'
+        f'{"".join(rows)}</div>', unsafe_allow_html=True)
+
+
+def render_actions(d: dict):
+    actions = d.get("actions") or []
+    if not actions:
+        return
+    items = "".join(
+        f'<div style="padding:9px 0;color:{th["text"]};font-size:14px;">'
+        f'<span style="color:{ACCENT};font-weight:700;margin-right:10px;">→</span>'
+        f'{str(a).replace("<", "&lt;")}</div>' for a in actions)
+    st.markdown(
+        f'<div style="background:{th["card"]};'
+        f'border:1px solid {ACCENT}55;border-radius:12px;'
+        f'padding:14px 20px;margin-bottom:18px;">'
+        f'<div style="color:{ACCENT};font-size:12px;letter-spacing:.08em;'
+        f'text-transform:uppercase;margin-bottom:6px;font-weight:700;">'
+        f'{t("ai_actions")}</div>{items}</div>', unsafe_allow_html=True)
+
+
+# ================================================== головна сводка ----
+main_row = insights[insights["agent"] == "main"]
+if not main_row.empty:
+    r = main_row.iloc[0]
+    d = parsed_of(r)
+    render_headline(d, t("ai_main_summary"), AGENT_ICONS["main"])
+    render_findings(d)
+    render_actions(d)
     st.caption(f"{t('ai_model')}: {r['model']} · "
                f"{pd.to_datetime(r['created_at']):%d.%m.%Y %H:%M}")
-    st.markdown("")
 
-# ------------------------------------------------ висновки агентів ----
+st.markdown("---")
+
+# ================================================ опорні показники ----
+st.markdown(f"**{t('ai_supporting_data')}**")
+
+kpi = q("""
+    SELECT
+      (SELECT COUNT(*) FROM merinnovation.orders
+        WHERE purchase_date >= NOW() - INTERVAL '7 days'
+          AND order_status <> 'Canceled') AS orders_7d,
+      (SELECT COUNT(*) FROM merinnovation.orders
+        WHERE purchase_date >= NOW() - INTERVAL '14 days'
+          AND purchase_date < NOW() - INTERVAL '7 days'
+          AND order_status <> 'Canceled') AS orders_prev_7d,
+      (SELECT COUNT(*) FROM merinnovation.forecast_sku
+        WHERE velocity_weighted > 0 AND fulfillable = 0) AS stockouts,
+      (SELECT COUNT(*) FROM merinnovation.forecast_sku
+        WHERE status = 'REORDER_NOW') AS reorder_now,
+      (SELECT COALESCE(SUM(recommended_qty), 0) FROM merinnovation.forecast_sku
+        WHERE status IN ('REORDER_NOW','OUT_OF_STOCK')) AS units_to_order
+""")
+
+if not kpi.empty:
+    k = kpi.iloc[0]
+    o7, op7 = int(k["orders_7d"] or 0), int(k["orders_prev_7d"] or 0)
+    delta = (f"{abs((o7 - op7) / op7 * 100):.0f}%" if op7 else None)
+    up = o7 >= op7
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        metric_card(t("ai_orders_7d"), f"{o7:,}", delta=delta, delta_up=up,
+                    sub=f"{t('ai_prev')}: {op7:,}")
+    with c2:
+        metric_card(t("ai_stockouts"), f"{int(k['stockouts'] or 0)}",
+                    sub=t("ai_stockouts_sub"))
+    with c3:
+        metric_card(t("ai_reorder_now"), f"{int(k['reorder_now'] or 0)}")
+    with c4:
+        metric_card(t("ai_units_to_order"), f"{int(k['units_to_order'] or 0):,}")
+
+# графік динаміки замовлень
+daily = q("""
+    SELECT purchase_date::date AS day, COUNT(*) AS orders
+    FROM merinnovation.orders
+    WHERE purchase_date >= NOW() - INTERVAL '30 days'
+      AND order_status <> 'Canceled'
+    GROUP BY 1 ORDER BY 1
+""")
+if not daily.empty:
+    daily["label"] = pd.to_datetime(daily["day"]).dt.strftime("%d.%m")
+    fig = go.Figure(go.Bar(x=daily["label"], y=daily["orders"],
+                           marker_color=ACCENT))
+    lk = plotly_layout(title=t("ai_orders_chart"))
+    lk["height"] = 260
+    lk["xaxis"] = themed_axis(type="category", showgrid=False)
+    fig.update_layout(**lk)
+    st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+# ================================================== ДЕ ТЕЧУТЬ ГРОШІ ----
+leaks_exist = q("""
+    SELECT COUNT(*) AS n FROM information_schema.tables
+    WHERE table_schema='merinnovation' AND table_name='money_leaks'
+""")
+has_leaks = not leaks_exist.empty and int(leaks_exist["n"].iloc[0]) > 0
+
+if has_leaks:
+    by_type = q("""
+        SELECT leak_type, COUNT(*) AS sku_count, SUM(amount_usd) AS usd
+        FROM merinnovation.money_leaks
+        GROUP BY 1 ORDER BY 3 DESC
+    """)
+
+    if not by_type.empty:
+        total_leak = float(by_type["usd"].sum())
+
+        st.markdown(
+            f'<div style="background:{th["card"]};'
+            f'border:1px solid #ef444455;border-left:4px solid #ef4444;'
+            f'border-radius:14px;padding:22px 26px;margin-bottom:18px;">'
+            f'<div style="color:{th["muted"]};font-size:12px;letter-spacing:.08em;'
+            f'text-transform:uppercase;margin-bottom:10px;">'
+            f'💸 {t("leaks_title")}</div>'
+            f'<div style="color:#ef4444;font-size:34px;font-weight:800;'
+            f'line-height:1.1;">${total_leak:,.0f}</div>'
+            f'<div style="color:{th["muted"]};font-size:13px;margin-top:6px;">'
+            f'{t("leaks_note")}</div></div>', unsafe_allow_html=True)
+
+        LEAK_LABELS = {
+            "STOCKOUT_NOW": t("leak_stockout_now"),
+            "STOCKOUT_SOON": t("leak_stockout_soon"),
+            "CONVERSION_GAP": t("leak_conversion"),
+            "REFUNDS": t("leak_refunds"),
+            "FEE_BURDEN": t("leak_fees"),
+            "DEAD_STOCK": t("leak_dead_stock"),
+        }
+
+        lc, rc = st.columns([1, 1])
+
+        with lc:
+            by_type["label"] = by_type["leak_type"].map(
+                lambda x: LEAK_LABELS.get(x, x))
+            b = by_type.sort_values("usd")
+            figl = go.Figure(go.Bar(
+                x=b["usd"], y=b["label"], orientation="h",
+                marker_color="#ef4444",
+                text=[f"${v:,.0f}" for v in b["usd"]],
+                textposition="outside"))
+            lk = plotly_layout(title=t("leaks_by_type"))
+            lk["height"] = 300
+            lk["yaxis"] = themed_axis(type="category")
+            figl.update_layout(**lk)
+            st.plotly_chart(figl, use_container_width=True)
+
+        with rc:
+            rows = []
+            for _, r in by_type.sort_values("usd", ascending=False).iterrows():
+                label = LEAK_LABELS.get(r["leak_type"], r["leak_type"])
+                share = float(r["usd"]) / total_leak * 100 if total_leak else 0
+                rows.append(
+                    f'<div style="padding:12px 0;border-bottom:1px solid '
+                    f'{th["border"]};">'
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'align-items:baseline;">'
+                    f'<span style="color:{th["text"]};font-size:14px;">{label}</span>'
+                    f'<span style="color:#ef4444;font-weight:700;'
+                    f'font-size:16px;white-space:nowrap;margin-left:12px;">'
+                    f'${float(r["usd"]):,.0f}</span></div>'
+                    f'<div style="color:{th["muted"]};font-size:12px;'
+                    f'margin-top:3px;">{int(r["sku_count"])} SKU · '
+                    f'{share:.0f}% {t("leaks_of_total")}</div></div>')
+            st.markdown(
+                f'<div style="background:{th["card"]};'
+                f'border:1px solid {th["border"]};border-radius:12px;'
+                f'padding:4px 20px 8px 20px;">{"".join(rows)}</div>',
+                unsafe_allow_html=True)
+
+        # ---- топ позицій із причинами ----
+        st.markdown("")
+        st.markdown(f"**{t('leaks_top_positions')}**")
+
+        top_leaks = q("""
+            SELECT leak_type, seller_sku, asin, amount_usd, detail, severity
+            FROM merinnovation.money_leaks
+            ORDER BY amount_usd DESC LIMIT 15
+        """)
+
+        if not top_leaks.empty:
+            items = []
+            for _, r in top_leaks.iterrows():
+                det = r["detail"]
+                if isinstance(det, str):
+                    try:
+                        det = json.loads(det)
+                    except Exception:
+                        det = {}
+                det = det or {}
+                reason = str(det.get("reason", "")).replace("<", "&lt;")
+                label = LEAK_LABELS.get(r["leak_type"], r["leak_type"])
+                sku = str(r["seller_sku"] or "")[:32]
+                items.append(
+                    f'<div style="padding:13px 0;border-bottom:1px solid '
+                    f'{th["border"]};">'
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'align-items:baseline;gap:12px;">'
+                    f'<span style="color:{th["text"]};font-weight:600;'
+                    f'font-size:14px;">{sku}</span>'
+                    f'<span style="color:#ef4444;font-weight:700;'
+                    f'white-space:nowrap;">${float(r["amount_usd"]):,.0f}</span>'
+                    f'</div>'
+                    f'<div style="color:{th["muted"]};font-size:12px;'
+                    f'margin-top:4px;">{label} · {reason}</div></div>')
+            st.markdown(
+                f'<div style="background:{th["card"]};'
+                f'border:1px solid {th["border"]};border-radius:12px;'
+                f'padding:4px 20px 8px 20px;">{"".join(items)}</div>',
+                unsafe_allow_html=True)
+
+    st.markdown("---")
+
+# ============================================== розділи за напрямами ----
 others = insights[insights["agent"] != "main"].copy()
 if not others.empty:
-    st.markdown(f"**{t('ai_by_agent')}**")
-
     others["order"] = others["agent"].apply(
         lambda a: AGENT_ORDER.index(a) if a in AGENT_ORDER else 99)
     others = others.sort_values("order")
 
-    records = others.to_dict("records")
-    for i in range(0, len(records), 2):
-        cols = st.columns(2)
-        for col, rec in zip(cols, records[i:i + 2]):
-            with col:
-                icon = AGENT_ICONS.get(rec["agent"], "•")
-                card(f"{icon} {rec['title']}", rec["content"])
+    for _, row in others.iterrows():
+        d = parsed_of(row)
+        icon = AGENT_ICONS.get(row["agent"], "•")
+        render_headline(d, row["title"], icon)
+        render_findings(d)
+        render_actions(d)
 
 # ----------------------------------------------------------- історія ----
-st.markdown("")
 with st.expander(t("ai_history")):
     hist = q("""
-        SELECT report_date, content, created_at
+        SELECT report_date, structured, content
         FROM merinnovation.ai_insights
         WHERE agent = 'main'
         ORDER BY created_at DESC LIMIT 14
@@ -122,9 +360,12 @@ with st.expander(t("ai_history")):
         st.caption(t("no_ai_data"))
     else:
         for _, r in hist.iterrows():
-            d = pd.to_datetime(r["report_date"]).strftime("%d.%m.%Y")
-            st.markdown(f"**{d}**")
-            st.markdown(r["content"])
+            d = parsed_of(r)
+            day = pd.to_datetime(r["report_date"]).strftime("%d.%m.%Y")
+            _, sev_icon = SEV.get(d.get("severity", "ok"), SEV["ok"])
+            st.markdown(f"**{day}** {sev_icon} {d.get('headline', '')}")
+            for f in (d.get("findings") or [])[:3]:
+                st.caption(f"· {f.get('text', '')}")
             st.markdown("---")
 
 st.caption(t("ai_cache_note"))
