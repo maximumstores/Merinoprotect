@@ -59,9 +59,10 @@ def agg_period(df, date_col, gran, sum_cols):
 # ------------------------------------------------------- фільтри ----
 fc1, fc2, fc3, _ = st.columns([2, 2, 2, 4])
 with fc1:
-    period_map = {t("per_30"): 30, t("per_60"): 60, t("per_90"): 90}
+    period_map = {t("per_1"): 1, t("per_7"): 7, t("per_14"): 14,
+                  t("per_30"): 30, t("per_60"): 60, t("per_90"): 90}
     period_label = st.selectbox(t("flt_period"), list(period_map),
-                                index=0, key="rv_period")
+                                index=3, key="rv_period")
     period_days = period_map[period_label]
 with fc2:
     gran_map = {t("gran_day"): "day", t("gran_week"): "week",
