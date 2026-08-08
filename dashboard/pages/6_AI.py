@@ -11,8 +11,8 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from db import (ACCENT, ACCENT2, cur_theme, inject_css, lang_selector,
-                metric_card, plotly_layout, q, t, themed_axis)
+from db import (ACCENT, ACCENT2, cur_theme, get_conn, inject_css,
+                lang_selector, metric_card, plotly_layout, q, t, themed_axis)
 
 st.set_page_config(layout="wide", page_title="Merinnovation · AI", page_icon="🐑")
 lang_selector()
@@ -49,18 +49,91 @@ if dates.empty:
     st.stop()
 
 date_options = pd.to_datetime(dates["report_date"]).dt.date.tolist()
-fc1, _ = st.columns([2, 6])
+
+# які мови є в базі за цю дату
+has_lang_col = q("""
+    SELECT COUNT(*) AS n FROM information_schema.columns
+    WHERE table_schema='merinnovation' AND table_name='ai_insights'
+      AND column_name='lang'
+""")
+lang_supported = not has_lang_col.empty and int(has_lang_col["n"].iloc[0]) > 0
+
+fc1, fc2, fc3 = st.columns([2, 2, 4])
 with fc1:
     sel_date = st.selectbox(t("ai_report_date"), date_options,
                             format_func=lambda d: d.strftime("%d.%m.%Y"),
                             key="ai_date")
 
-insights = q("""
-    SELECT DISTINCT ON (agent) agent, title, content, structured, model, created_at
-    FROM merinnovation.ai_insights
-    WHERE report_date = %s
-    ORDER BY agent, created_at DESC
-""", (sel_date,))
+ui_lang = st.session_state.get("lang", "uk")
+sel_lang = ui_lang
+
+if lang_supported:
+    langs_avail = q("""
+        SELECT DISTINCT COALESCE(lang, 'uk') AS lang
+        FROM merinnovation.ai_insights WHERE report_date = %s
+    """, (sel_date,))
+    available = langs_avail["lang"].tolist() if not langs_avail.empty else ["uk"]
+    # мова інтерфейсу, якщо є; інакше перша наявна
+    sel_lang = ui_lang if ui_lang in available else available[0]
+    if len(available) > 1:
+        with fc2:
+            names = {"uk": "Українська", "ru": "Русский", "en": "English"}
+            sel_lang = st.selectbox(
+                t("ai_text_lang"), available,
+                index=available.index(sel_lang),
+                format_func=lambda x: names.get(x, x), key="ai_lang")
+    elif ui_lang not in available:
+        with fc2:
+            st.caption(t("ai_lang_missing"))
+
+with fc3:
+    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+    if st.button(t("ai_refresh"), key="ai_refresh_btn", icon=":material/refresh:"):
+        try:
+            q.clear()
+            with get_conn().cursor() as cur:
+                cur.execute("""
+                    INSERT INTO merinnovation.job_queue (script, requested_by)
+                    VALUES ('10_ai_analyst.py', 'dashboard')
+                """)
+            st.success(t("ai_refresh_queued"))
+        except Exception as e:
+            st.error(f"{t('ai_refresh_failed')}: {e}")
+
+# статус останньої заявки — щоб було видно, що відбувається
+try:
+    last_job = q("""
+        SELECT status, requested_at, finished_at, message
+        FROM merinnovation.job_queue
+        WHERE script = '10_ai_analyst.py'
+        ORDER BY requested_at DESC LIMIT 1
+    """)
+    if not last_job.empty:
+        j = last_job.iloc[0]
+        age_min = (pd.Timestamp.now(tz="UTC")
+                   - pd.to_datetime(j["requested_at"], utc=True)).total_seconds() / 60
+        if j["status"] in ("pending", "running") and age_min < 30:
+            st.info(t("ai_job_running") if j["status"] == "running"
+                    else t("ai_job_pending"))
+except Exception:
+    pass
+
+if lang_supported:
+    insights = q("""
+        SELECT DISTINCT ON (agent) agent, title, content, structured,
+               model, created_at
+        FROM merinnovation.ai_insights
+        WHERE report_date = %s AND COALESCE(lang, 'uk') = %s
+        ORDER BY agent, created_at DESC
+    """, (sel_date, sel_lang))
+else:
+    insights = q("""
+        SELECT DISTINCT ON (agent) agent, title, content, structured,
+               model, created_at
+        FROM merinnovation.ai_insights
+        WHERE report_date = %s
+        ORDER BY agent, created_at DESC
+    """, (sel_date,))
 
 if insights.empty:
     st.info(t("no_ai_data"))
@@ -389,12 +462,20 @@ if not others.empty:
 
 # ----------------------------------------------------------- історія ----
 with st.expander(t("ai_history")):
-    hist = q("""
-        SELECT report_date, structured, content
-        FROM merinnovation.ai_insights
-        WHERE agent = 'main'
-        ORDER BY created_at DESC LIMIT 14
-    """)
+    if lang_supported:
+        hist = q("""
+            SELECT report_date, structured, content
+            FROM merinnovation.ai_insights
+            WHERE agent = 'main' AND COALESCE(lang, 'uk') = %s
+            ORDER BY created_at DESC LIMIT 14
+        """, (sel_lang,))
+    else:
+        hist = q("""
+            SELECT report_date, structured, content
+            FROM merinnovation.ai_insights
+            WHERE agent = 'main'
+            ORDER BY created_at DESC LIMIT 14
+        """)
     if hist.empty:
         st.caption(t("no_ai_data"))
     else:
